@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Resume & Skill Gap Analyzer</title>
+
+  <style>
+    
+:root {
+  --bg: linear-gradient(140deg, #eef3ff, #e7ecff);
+  --card: rgba(255,255,255,0.75);
+  --border: rgba(180,200,255,.6);
+  --text: #1f2d63;
+  --button1: #2f5bff;
+  --button2: #1e91ff;
+}
+
+.dark-theme {
+  --bg: linear-gradient(140deg, #0a0f1f, #0e1329);
+  --card: rgba(20,22,35,0.7);
+  --border: rgba(90,110,160,.5);
+  --text: #e6ebff;
+  --button1: #6b8bff;
+  --button2: #2fd4ff;
+}
+
+body { 
+  font-family: 'Segoe UI', Roboto, Arial; 
+  background: var(--bg);
+  color: var(--text);
+  padding: 30px;
+}
+
+/* Title */
+h1 {
+    
+  text-align: center;
+  font-size: 26px;
+  letter-spacing: .5px;
+  color: #1f2d63;
+  margin-bottom: 25px;
+}
+
+/* Card */
+.box { 
+  background: var(--card);
+  padding: 20px; 
+  border-radius: 14px; 
+  margin-bottom: 18px;
+
+  border: 1px solid var(--border);
+
+  /* soft glow + glass */
+  backdrop-filter: blur(10px);
+  box-shadow: 
+      0 12px 25px rgba(0,0,0,.06),
+      0 0 0 1px rgba(255,255,255,.4);
+  transition: .25s ease;
+}
+
+.box:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+     0 18px 35px rgba(0,0,0,.08),
+     0 0 0 1px rgba(255,255,255,.7);
+}
+
+
+/* Section title */
+.box h3 {
+  margin-top: 0;
+  color: #1d2a6b;
+}
+
+/* Buttons */
+button {
+  padding: 9px 18px;
+  background: linear-gradient(135deg,var(--button1),var(--button2));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+
+  box-shadow: 0 6px 16px rgba(60,110,255,.25);
+  transition: .25s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(60,110,255,.35);
+}
+
+button:disabled {
+  background: #9aa6ff;
+  box-shadow: none;
+}
+
+
+/* Textareas */
+textarea {
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid #d6dfff;
+  outline: none;
+}
+
+textarea:focus {
+  border-color: #325dff;
+  box-shadow: 0 0 0 2px rgba(77, 119, 255, .2);
+}
+
+/* Messages */
+.loading { color: orange; font-weight: bold; }
+.success { color: green; font-weight: bold; }
+.error   { color: red; font-weight: bold; }
+
+/* SCAN animation box */
+.scan-box {
+  width: 220px;
+  height: 260px;
+  border-radius: 10px;
+  margin-top: 10px;
+
+  border: 1px dashed rgba(120,150,255,.7);
+  background: linear-gradient(
+      180deg,
+      rgba(255,255,255,.25),
+      rgba(240,245,255,.45)
+  );
+  position: relative;
+  overflow: hidden;
+  display: none;
+}
+
+/* moving scan line */
+.scan-line {
+  position: absolute;
+  top: -50px;
+  left: 0;
+  width: 100%;
+  height: 50px;
+
+  background: linear-gradient(
+      rgba(0,180,255,0),
+      rgba(0,180,255,.5),
+      rgba(0,180,255,0)
+  );
+
+  animation: scanMove 1.4s linear infinite;
+}
+
+@keyframes scanMove {
+  0% { top: -50px; }
+  100% { top: 260px; }
+}
+.score-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: bold;
+  color: white;
+
+  background: conic-gradient(#00db67 0deg, #ccc 0deg);
+  box-shadow: 0 0 18px rgba(0,255,130,.4);
+}
+
+
+</style>
+
+</head>
+
+<body>
+
+<h1>AI Resume & Skill Gap Analyzer</h1>
+<div style="text-align:center; margin-bottom:18px;">
+  <button onclick="toggleTheme()">🌗 Toggle Theme</button>
+</div>
+
+<!-- ================= UPLOAD RESUME ================= -->
+<div class="box">
+  <h3>1️⃣ Upload Resume (PDF)</h3>
+
+  <input type="file" id="resume">
+  <button id="uploadBtn" type="button" onclick="uploadResume()">Upload</button>
+
+  <div class="scan-box" id="scanBox">
+  <div class="scan-line"></div>
+</div>
+
+<p id="resumeMsg"></p>
+
+</div>
+
+<!-- ================= JOB DESCRIPTION ================= -->
+<div class="box">
+  <h3>2️⃣ Paste Job Description</h3>
+
+  <textarea id="jobInput" placeholder="Paste job description here..." style="width:100%; height:130px;"></textarea>
+
+  <br><br>
+  <button id="analyzeBtn" type="button" onclick="analyzeJob()">Analyze Job</button>
+
+  <p id="jobMsg"></p>
+</div>
+
+<!-- ================= SKILL GAP ================= -->
+<div class="box">
+  <h3>3️⃣ Get Skill Gap</h3>
+
+  <button id="gapBtn" type="button" onclick="getGap()">Get Skill Gap</button>
+
+  <div id="scoreContainer" style="display:none; text-align:center; margin-top:15px;">
+
+  <div class="score-circle">
+    <span id="scoreValue">0%</span>
+  </div>
+
+</div>
+
+<p id="result"></p>
+
+</div>
+
+
+<script>
+const BASE_URL = "http://127.0.0.1:8000";
+
+/* ---------------- UPLOAD RESUME ---------------- */
+async function uploadResume() {
+
+  let file = document.getElementById("resume").files[0];
+  if (!file) return alert("Select a resume first");
+
+document.getElementById("resumeMsg").innerHTML = "⏳ Uploading...";
+document.getElementById("resumeMsg").className = "loading";
+document.getElementById("uploadBtn").disabled = true;
+document.getElementById("scanBox").style.display = "none";
+document.getElementById("scanBox").style.display = "block";
+
+
+
+  let form = new FormData();
+  form.append("file", file);
+
+  await new Promise(r => setTimeout(r, 2000));  // 2 second loading feel
+
+  let res = await fetch(`${BASE_URL}/upload-resume`, {
+    method: "POST",
+    body: form
+  });
+
+  let data = await res.json();
+  
+
+
+  if (data.resume_skills_found) {
+    document.getElementById("resumeMsg").innerHTML =
+      "✔ Resume processed: <b>" + data.resume_skills_found.join(", ") + "</b>";
+
+    document.getElementById("resumeMsg").className = "success";
+  } else {
+    document.getElementById("resumeMsg").innerHTML = "❌ Upload failed";
+    document.getElementById("resumeMsg").className = "error";
+  }
+
+  document.getElementById("uploadBtn").disabled = false;
+}
+
+
+/* ---------------- ANALYZE JOB ---------------- */
+async function analyzeJob() {
+
+  let text = document.getElementById("jobInput").value;
+  if (!text.trim()) return alert("Paste job description first");
+
+  document.getElementById("jobMsg").innerHTML = "⏳ Analyzing job text...";
+  document.getElementById("jobMsg").className = "loading";
+  document.getElementById("analyzeBtn").disabled = true;
+
+  await new Promise(r => setTimeout(r, 1500));
+
+  let res = await fetch(`${BASE_URL}/analyze-job`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+
+  let data = await res.json();
+
+  document.getElementById("jobMsg").innerHTML =
+    "✔ Job skills detected: <b>" + data.job_skills_required.join(", ") + "</b>";
+
+  document.getElementById("jobMsg").className = "success";
+  document.getElementById("analyzeBtn").disabled = false;
+}
+
+
+/* ---------------- GET SKILL GAP ---------------- */
+async function getGap() {
+
+  document.getElementById("result").innerHTML = "⏳ Calculating skill gap...";
+  document.getElementById("gapBtn").disabled = true;
+
+  await new Promise(r => setTimeout(r, 1200));
+
+  let res = await fetch(`${BASE_URL}/get-skill-gap`);
+  let data = await res.json();
+  document.getElementById("scoreContainer").style.display = "block";
+
+let score = Math.round(data.match_score);
+let current = 0;
+
+let interval = setInterval(() => {
+  if (current >= score) clearInterval(interval);
+
+  document.getElementById("scoreValue").innerText = current + "%";
+  document.querySelector(".score-circle").style.background =
+    `conic-gradient(#00db67 ${current * 3.6}deg, #ccc 0deg)`;
+
+  current++;
+}, 20);
+
+
+  if (data.error) {
+    document.getElementById("result").innerHTML = "❌ " + data.error;
+    document.getElementById("gapBtn").disabled = false;
+    return;
+  }
+
+  document.getElementById("result").innerHTML = `
+    <b>Resume Skills:</b> ${data.resume_skills.join(", ")} <br>
+    <b>Job Requires:</b> ${data.job_skills_required.join(", ")} <br>
+    <b>Missing:</b> ${data.skills_missing.join(", ")} <br>
+    <h3>Match Score: ${data.match_score}%</h3>
+  `;
+
+  document.getElementById("gapBtn").disabled = false;
+}
+function toggleTheme() {
+  document.body.classList.toggle("dark-theme");
+
+  // save preference
+  if (document.body.classList.contains("dark-theme")) {
+      localStorage.setItem("theme", "dark");
+  } else {
+      localStorage.setItem("theme", "light");
+  }
+}
+// load saved theme
+if (localStorage.getItem("theme") === "dark") {
+    document.body.classList.add("dark-theme");
+}
+
+
+</script>
+
+</body>
+</html>
