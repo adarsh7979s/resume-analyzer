@@ -171,6 +171,15 @@ textarea:focus {
   box-shadow: 0 0 18px rgba(0,255,130,.4);
 }
 
+.history-item {
+  background: rgba(255,255,255,.6);
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(180,200,255,.6);
+}
+
+
 
 </style>
 
@@ -198,14 +207,21 @@ textarea:focus {
 
 </div>
 
-<!-- ================= JOB DESCRIPTION ================= -->
+<!-- ================= JOB ROLE ANALYZER ================= -->
 <div class="box">
-  <h3>2️⃣ Paste Job Description</h3>
+  <h3>2️⃣ Enter Job Role</h3>
 
-  <textarea id="jobInput" placeholder="Paste job description here..." style="width:100%; height:130px;"></textarea>
+  <input 
+    id="roleInput"
+    placeholder="Example: AI Engineer, Full Stack Developer, Backend Developer"
+    style="width:100%; padding:10px; border-radius:8px; border:1px solid #d6dfff;"
+  />
 
   <br><br>
-  <button id="analyzeBtn" type="button" onclick="analyzeJob()">Analyze Job</button>
+
+  <button id="roleBtn" type="button" onclick="analyzeRole()">
+    Analyze Role
+  </button>
 
   <p id="jobMsg"></p>
 </div>
@@ -227,6 +243,16 @@ textarea:focus {
 <p id="result"></p>
 
 </div>
+
+<!-- ================= HISTORY ================= -->
+<div class="box">
+  <h3>📜 Scan History</h3>
+
+  <div id="historyList">
+      <i>No scans yet...</i>
+  </div>
+</div>
+
 
 
 <script>
@@ -274,31 +300,36 @@ document.getElementById("scanBox").style.display = "block";
 }
 
 
-/* ---------------- ANALYZE JOB ---------------- */
-async function analyzeJob() {
+async function analyzeRole() {
 
-  let text = document.getElementById("jobInput").value;
-  if (!text.trim()) return alert("Paste job description first");
+  let role = document.getElementById("roleInput").value;
 
-  document.getElementById("jobMsg").innerHTML = "⏳ Analyzing job text...";
+  if (!role.trim()) return alert("Enter a job role first");
+
+  document.getElementById("jobMsg").innerHTML = "⏳ Finding skills for this role...";
   document.getElementById("jobMsg").className = "loading";
-  document.getElementById("analyzeBtn").disabled = true;
+  document.getElementById("roleBtn").disabled = true;
 
-  await new Promise(r => setTimeout(r, 1500));
-
-  let res = await fetch(`${BASE_URL}/analyze-job`, {
+  let res = await fetch(`${BASE_URL}/analyze-role`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text })
+    body: JSON.stringify({ role })
   });
 
   let data = await res.json();
 
+  if (data.error) {
+    document.getElementById("jobMsg").innerHTML = "❌ " + data.error;
+    document.getElementById("roleBtn").disabled = false;
+    return;
+  }
+
   document.getElementById("jobMsg").innerHTML =
-    "✔ Job skills detected: <b>" + data.job_skills_required.join(", ") + "</b>";
+    "✔ Role detected: <b>" + data.role + "</b><br>" +
+    "Skills required: <b>" + data.job_skills_required.join(", ") + "</b>";
 
   document.getElementById("jobMsg").className = "success";
-  document.getElementById("analyzeBtn").disabled = false;
+  document.getElementById("roleBtn").disabled = false;
 }
 
 
@@ -325,6 +356,31 @@ let interval = setInterval(() => {
     `conic-gradient(#00db67 ${current * 3.6}deg, #ccc 0deg)`;
 
   current++;
+
+// -------- SAVE TO HISTORY --------
+let history = JSON.parse(localStorage.getItem("history")) || [];
+
+let newEntry = {
+  score: data.match_score,
+  resume: data.resume_skills,
+  job: data.job_skills_required,
+  missing: data.skills_missing,
+  time: new Date().toLocaleString()
+};
+
+// prevent duplicate of last scan
+if (history.length === 0 || JSON.stringify(history[0]) !== JSON.stringify(newEntry)) {
+    history.unshift(newEntry);
+}
+
+// keep only latest 5
+history = history.slice(0, 5);
+
+localStorage.setItem("history", JSON.stringify(history));
+
+renderHistory();
+
+
 }, 20);
 
 
@@ -334,12 +390,24 @@ let interval = setInterval(() => {
     return;
   }
 
-  document.getElementById("result").innerHTML = `
-    <b>Resume Skills:</b> ${data.resume_skills.join(", ")} <br>
-    <b>Job Requires:</b> ${data.job_skills_required.join(", ")} <br>
-    <b>Missing:</b> ${data.skills_missing.join(", ")} <br>
-    <h3>Match Score: ${data.match_score}%</h3>
-  `;
+  // find skills that matched
+let matched = data.job_skills_required.filter(
+  s => data.resume_skills.includes(s)
+);
+
+document.getElementById("result").innerHTML = `
+  <b>Resume Skills:</b> ${data.resume_skills.join(", ")} <br>
+  <b>Job Requires:</b> ${data.job_skills_required.join(", ")} <br>
+
+  <b style="color:green;">Skills Matched:</b>
+  ${matched.length ? matched.join(", ") : "None"} <br>
+
+  <b style="color:red;">Skills Missing:</b>
+  ${data.skills_missing.length ? data.skills_missing.join(", ") : "None"} <br>
+
+  <h3>Match Score: ${data.match_score}%</h3>
+`;
+
 
   document.getElementById("gapBtn").disabled = false;
 }
@@ -357,6 +425,26 @@ function toggleTheme() {
 if (localStorage.getItem("theme") === "dark") {
     document.body.classList.add("dark-theme");
 }
+function renderHistory() {
+  let history = JSON.parse(localStorage.getItem("history")) || [];
+
+  if (history.length === 0) {
+    document.getElementById("historyList").innerHTML = "<i>No scans yet...</i>";
+    return;
+  }
+
+  document.getElementById("historyList").innerHTML = history
+    .map(item => `
+      <div class="history-item">
+        <b>Score:</b> ${item.score}% <br>
+        <b>Matched:</b> ${item.resume.join(", ")} <br>
+        <b>Missing:</b> ${item.missing.join(", ")} <br>
+        <small>${item.time}</small>
+      </div>
+    `).join("");
+}
+
+renderHistory();
 
 
 </script>
