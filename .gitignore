@@ -87,3 +87,9 @@ htmlcov/
 *.rar
 *.bak
 *.old
+
+venv_ai/
+venv/
+__pycache__/
+*.pyc
+node_modules/

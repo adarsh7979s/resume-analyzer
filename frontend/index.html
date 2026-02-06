@@ -219,7 +219,8 @@ textarea:focus {
 
   <br><br>
 
-  <button id="roleBtn" type="button" onclick="analyzeRole()">
+  <button id="roleBtn" type="button" onclick="analyzeRole(event)">
+
     Analyze Role
   </button>
 
@@ -300,7 +301,9 @@ document.getElementById("scanBox").style.display = "block";
 }
 
 
-async function analyzeRole() {
+async function analyzeRole(event) {
+  if (event) event.preventDefault();
+
 
   let role = document.getElementById("roleInput").value;
 
@@ -364,6 +367,7 @@ let newEntry = {
   score: data.match_score,
   resume: data.resume_skills,
   job: data.job_skills_required,
+  semantic_matches: data.semantic_matches,   // ✅ ADD THIS
   missing: data.skills_missing,
   time: new Date().toLocaleString()
 };
@@ -391,9 +395,11 @@ renderHistory();
   }
 
   // find skills that matched
-let matched = data.job_skills_required.filter(
-  s => data.resume_skills.includes(s)
+// use AI-matched skills from backend
+let matched = data.semantic_matches.map(
+  m => `${m.job_skill} (${Math.round(m.similarity * 100)}%)`
 );
+
 
 document.getElementById("result").innerHTML = `
   <b>Resume Skills:</b> ${data.resume_skills.join(", ")} <br>
@@ -437,7 +443,8 @@ function renderHistory() {
     .map(item => `
       <div class="history-item">
         <b>Score:</b> ${item.score}% <br>
-        <b>Matched:</b> ${item.resume.join(", ")} <br>
+        <b>Matched:</b> ${item.semantic_matches.map(m => m.job_skill).join(", ") || "None"} <br>
+
         <b>Missing:</b> ${item.missing.join(", ")} <br>
         <small>${item.time}</small>
       </div>

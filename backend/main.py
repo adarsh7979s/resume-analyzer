@@ -1,10 +1,28 @@
 import re
 from fastapi import FastAPI, UploadFile, File, Form, Request
+from sentence_transformers import SentenceTransformer, util
+
 from fastapi.middleware.cors import CORSMiddleware
 import pdfplumber
 import os
 from dotenv import load_dotenv
 from google import genai
+import json
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROLE_DB_FILE = os.path.join(BASE_DIR, "role_skills_db.json")
+
+
+def load_role_db():
+    if not os.path.exists(ROLE_DB_FILE):
+        return {}
+    with open(ROLE_DB_FILE, "r") as f:
+        return json.load(f)
+
+def save_role_db(data):
+    with open(ROLE_DB_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
 
 def normalize_text(text: str) -> str:
     text = text.lower()
@@ -54,7 +72,7 @@ SKILL_ALIASES.update({
     "data visualization": ["visualization", "viz"],
 })
 SKILL_ALIASES.update({
-    "c sharp": ["c#"]
+    "c sharp": ["c#", "C#"],
 })
 
 
@@ -92,7 +110,35 @@ else:
 
 scan_history = []
 
+# ===================================
+# 🧠 ROLE INTELLIGENCE MEMORY
+# ===================================
+ROLE_INTELLIGENCE = load_role_db()
+
+
+current_role = None
+
+
 app = FastAPI()
+
+# =====================================================
+# 🧠 LOAD EMBEDDING MODEL ON STARTUP (SAFE WAY)
+# =====================================================
+embedding_model = None
+
+@app.on_event("startup")
+def load_embedding_model():
+    global embedding_model
+    print("🧠 Loading semantic embedding model...")
+    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    print("✅ Embedding model loaded")
+
+
+# =====================================================
+# 🧠 SEMANTIC EMBEDDING MODEL (AI UPGRADE)
+# =====================================================
+
+
 
 # ---------- CORS ----------
 app.add_middleware(
@@ -189,36 +235,30 @@ CAPABILITY_SKILLS = {
     "database design": ["sql", "mysql"]
 }
 
+def evaluate_capabilities(role: str, resume_skills: list) -> dict:
+    """
+    Check which role capabilities are satisfied by resume skills.
+    """
+    capabilities = ROLE_CAPABILITIES.get(role, [])
+    satisfied = []
+    missing = []
+
+    resume_set = set(resume_skills)
+
+    for cap in capabilities:
+        evidence_skills = CAPABILITY_SKILLS.get(cap, [])
+        if any(skill in resume_set for skill in evidence_skills):
+            satisfied.append(cap)
+        else:
+            missing.append(cap)
+
+    return {
+        "satisfied": satisfied,
+        "missing": missing,
+        "score": int((len(satisfied) / len(capabilities)) * 100) if capabilities else 0
+    }
 
 
-# =====================================================================
-# 1️⃣ UPLOAD RESUME
-# =====================================================================
-
-# ---------- GLOBAL SKILL UNIVERSE ----------
-GLOBAL_SKILLS = set()
-GLOBAL_SKILLS.update({
-    "figma",
-    "virtual reality",
-    "augmented reality",
-    "ui ux",
-    "user interface",
-    "user experience"
-})
-GLOBAL_SKILLS.add("c#")
-
-
-
-# Add capability skills
-for skills in CAPABILITY_SKILLS.values():
-    for skill in skills:
-        GLOBAL_SKILLS.add(skill.lower())
-
-# Add aliases
-for canonical, aliases in SKILL_ALIASES.items():
-    GLOBAL_SKILLS.add(canonical)
-    for a in aliases:
-        GLOBAL_SKILLS.add(a)
 
 
 
@@ -227,31 +267,46 @@ for canonical, aliases in SKILL_ALIASES.items():
 # =====================================================================
 def gemini_extract_resume_skills(resume_text: str) -> list:
     """
-    Uses Gemini ONLY to extract skills from resume text.
-    Returns a list of skills.
+    Future-proof resume skill extraction using Gemini.
+    Returns structured, noise-free technical skills.
     """
     if not GEMINI_ENABLED:
         return []
 
     prompt = f"""
-You are an expert resume parser.
+You are an expert technical resume analyzer.
 
-Task:
-Extract ONLY technical skills from the resume text below.
+TASK:
+Extract ONLY concrete technical skills explicitly mentioned in the resume.
 
-Rules:
-- Return ONLY valid JSON
-- No explanations
-- No markdown
-- No duplicates
-- Skills should be short (1–3 words)
+STRICT RULES:
+- Ignore responsibilities, domains, concepts (e.g., "system design")
+- Ignore soft skills
+- Ignore adjectives (scalable, robust, distributed)
+- Ignore methodologies (agile, scrum)
+- NO duplicates
+- NO explanations
 
-JSON format:
+CATEGORIES (mandatory):
+- language
+- framework
+- library
+- database
+- cloud
+- devops
+- messaging
+- tool
+
+OUTPUT FORMAT (VALID JSON ONLY):
 {{
-  "skills": ["skill1", "skill2", "skill3"]
+  "skills": [
+    {{ "name": "java", "category": "language" }},
+    {{ "name": "spring boot", "category": "framework" }},
+    {{ "name": "kafka", "category": "messaging" }}
+  ]
 }}
 
-Resume Text:
+RESUME:
 \"\"\"
 {resume_text[:12000]}
 \"\"\"
@@ -264,7 +319,6 @@ Resume Text:
         )
 
         import json, re
-
         match = re.search(r"\{[\s\S]*\}", response.text)
         if not match:
             return []
@@ -275,23 +329,29 @@ Resume Text:
         if not isinstance(skills, list):
             return []
 
-        return [
-            s.lower().strip()
-            for s in skills
-            if isinstance(s, str) and len(s) > 2
-        ]
+        # normalize output
+        cleaned = []
+        for s in skills:
+            if (
+                isinstance(s, dict)
+                and "name" in s
+                and "category" in s
+                and len(s["name"].strip()) > 2
+            ):
+                cleaned.append({
+                    "name": s["name"].lower().strip(),
+                    "category": s["category"].lower().strip()
+                })
 
-
-
-
+        return cleaned
 
     except Exception as e:
-        print("⚠️ Gemini resume skill extraction failed:", e)
+        print("⚠️ Gemini skill extraction failed:", e)
         return []
+
 # =====================================================================
 # 1️⃣ UPLOAD RESUME
 # =====================================================================
-
 
 @app.post("/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
@@ -299,56 +359,28 @@ async def upload_resume(file: UploadFile = File(...)):
 
     raw_text = ""
 
-    # 1️⃣ Read PDF
     try:
         with pdfplumber.open(file.file) as pdf:
             for page in pdf.pages:
                 raw_text += page.extract_text() or ""
     except Exception:
         return {"error": "Could not read resume PDF"}
-
+    
     normalized_text = normalize_text(raw_text)
 
-    # 2️⃣ RULE-BASED SKILL DETECTION
-    detected = []
 
-    for skill in GLOBAL_SKILLS:
-        if len(skill) < 3:
-            continue  # avoids garbage like ai, ml, it
+    # ✅ FUTURE-PROOF: Gemini-only extraction
+    extracted = gemini_extract_resume_skills(raw_text)
 
-        pattern = r"\b" + re.escape(skill) + r"\b"
-        if re.search(pattern, normalized_text):
-            detected.append(skill)
+    # store ONLY skill names globally (categories kept internally)
+    resume_skills_global = [s["name"] for s in extracted]
 
-    # normalize aliases
-    detected = list(set(normalize_skill(s) for s in detected))
-
-    # 3️⃣ GEMINI AUGMENTATION (adds missing skills like figma, vr, tools)
-    if GEMINI_ENABLED:
-        gemini_skills = gemini_extract_resume_skills(raw_text)
-
-        detected = sorted(
-            set(detected) | set(normalize_skill(s) for s in gemini_skills)
-        )
-
-    # 4️⃣ FINAL CLEAN FILTER (anti-garbage)
-    detected = [
-    s for s in detected
-    if len(s) > 2 and s not in BLOCKED_SKILLS
-]
-
-
-    resume_skills_global = detected
-
-    # 🔒 FINAL /upload-resume RETURN (LOCKED)
     return {
         "resume_skills_found": resume_skills_global,
         "total_skills_detected": len(resume_skills_global),
-        "confidence": (
-            "high" if len(resume_skills_global) >= MIN_SKILLS_CONFIDENCE
-            else "medium"
-        )
+        "confidence": "high" if len(resume_skills_global) >= MIN_SKILLS_CONFIDENCE else "medium"
     }
+
 
 
 
@@ -440,23 +472,101 @@ JSON format:
         if not isinstance(skills, list):
             return {}
 
-        return {
-            "role": role,
-            "skills": [s.lower() for s in skills]
+        result = {
+        "role": role,
+        "skills": [s.lower() for s in skills]
         }
+
+        # 🔒 SAVE role skills to local DB (cache)
+        ROLE_INTELLIGENCE[role] = result["skills"]
+
+        try:
+            save_role_db(dict(ROLE_INTELLIGENCE))
+        except Exception as e:
+            print("⚠️ Failed to persist role cache:", e)
+
+
+
+        return result
+
 
     except Exception as e:
         print("⚠️ Gemini failed:", e)
         return {}
+    
+def gemini_classify_skill_importance(role: str, skills: list) -> dict:
+    """
+    Classify job skills into core, supporting, and inferred (human-style).
+    """
+    if not GEMINI_ENABLED:
+        return {}
+
+    prompt = f"""
+You are an expert technical recruiter.
+
+JOB ROLE:
+{role}
+
+SKILLS:
+{skills}
+
+TASK:
+Classify the skills into three categories:
+
+1. core_skills → must-have technical skills
+2. supporting_skills → good to have, learnable
+3. inferred_capabilities → should NOT penalize if missing
+
+RULES:
+- Do NOT invent new skills
+- Use ONLY the given skills
+- Return ONLY valid JSON
+- No explanations
+
+FORMAT:
+{{
+  "core": [],
+  "supporting": [],
+  "inferred": []
+}}
+"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        import json, re
+        match = re.search(r"\{[\s\S]*\}", response.text)
+        if not match:
+            return {}
+
+        data = json.loads(match.group(0))
+        return {
+            "core": [s.lower() for s in data.get("core", [])],
+            "supporting": [s.lower() for s in data.get("supporting", [])],
+            "inferred": [s.lower() for s in data.get("inferred", [])]
+        }
+
+    except Exception as e:
+        print("⚠️ Gemini skill classification failed:", e)
+        return {}
+    
 
 # =====================================================================
 # 3️⃣ ANALYZE ROLE
 # =====================================================================
+# ==============================
+# 🧠 ROLE SKILL PERSISTENT STORE
+# ==============================
+
+
 @app.post("/analyze-role")
 async def analyze_role(request: dict):
     global job_skills_global
 
-    print("📥 RAW REQUEST:", request)
+    
 
     role = (
         request.get("role")
@@ -464,12 +574,29 @@ async def analyze_role(request: dict):
         or request.get("text")
         or ""
     ).lower().strip()
+    global current_role
+    current_role = role
+    # 🔁 Check cached role skills first
+    ROLE_INTELLIGENCE.update(load_role_db())
+
+    if role in ROLE_INTELLIGENCE:
+        job_skills_global = ROLE_INTELLIGENCE[role]
+        return {
+            "role": role,
+            "job_skills_required": job_skills_global,
+            "confidence": "high",
+            "decision": "cached_role"
+        }
+
+
 
     if not role:
         return {"error": "No role received"}
 
     # STEP 1: Internal reasoning
     capabilities = ROLE_CAPABILITIES.get(role)
+    if capabilities:
+        print(f"📥 Role '{role}' handled internally (no Gemini)")
 
     # STEP 1A: Unknown role → Gemini PRIMARY
     if not capabilities:
@@ -529,8 +656,87 @@ async def analyze_role(request: dict):
     }
 
 
+def expand_job_skills(job_skills: list) -> list:
+    """
+    Convert abstract job requirements into concrete atomic skills.
+    This makes matching accurate and future-proof.
+    """
+    expanded = set()
+
+    for skill in job_skills:
+        s = skill.lower()
+
+        if "cloud" in s:
+            expanded.update(["aws", "azure", "gcp"])
+
+        elif "database" in s:
+            expanded.update(["mysql", "postgresql", "mongodb", "sql", "nosql"])
+
+        elif "message queue" in s or "messaging" in s:
+            expanded.update(["kafka", "rabbitmq"])
+
+        elif "programming" in s or "language" in s:
+            expanded.update(["python", "java", "go", "node.js"])
+
+        elif "container" in s:
+            expanded.update(["docker", "kubernetes"])
+
+        elif "api" in s:
+            expanded.update(["rest", "graphql"])
+
+        else:
+            # fallback: keep original skill
+            expanded.add(s)
+
+    return list(expanded)
 
 
+# =====================================================
+# 🧠 SEMANTIC SKILL MATCHING FUNCTION
+# =====================================================
+def semantic_match(resume_skills, job_skills, threshold=0.75):
+    global embedding_model
+
+    matched = []
+    missing = []
+
+    # Convert resume skills to set for fast exact lookup
+    resume_set = set(resume_skills)
+
+    for job_skill in job_skills:
+        # 1️⃣ EXACT MATCH (highest confidence)
+        if job_skill in resume_set:
+            matched.append({
+                "job_skill": job_skill,
+                "matched_with": job_skill,
+                "similarity": 1.0
+            })
+            continue
+
+        # 2️⃣ SEMANTIC MATCH (fallback)
+        best_score = 0
+        best_resume_skill = None
+
+        job_vec = embedding_model.encode(job_skill)
+
+        for resume_skill in resume_skills:
+            resume_vec = embedding_model.encode(resume_skill)
+            score = util.cos_sim(job_vec, resume_vec).item()
+
+            if score > best_score:
+                best_score = score
+                best_resume_skill = resume_skill
+
+        if best_score >= threshold:
+            matched.append({
+                "job_skill": job_skill,
+                "matched_with": best_resume_skill,
+                "similarity": round(best_score, 2)
+            })
+        else:
+            missing.append(job_skill)
+
+    return matched, missing
 
 
 # =====================================================================
@@ -538,35 +744,89 @@ async def analyze_role(request: dict):
 # =====================================================================
 @app.get("/get-skill-gap")
 async def get_skill_gap():
-    global resume_skills_global, job_skills_global, scan_history
+    global resume_skills_global, job_skills_global, scan_history, current_role
 
     if not resume_skills_global or not job_skills_global:
         return {"error": "Upload resume & analyze job first"}
 
-    normalized_resume = {normalize_skill(s) for s in resume_skills_global}
-    normalized_job = {normalize_skill(s) for s in job_skills_global}
+    # 1️⃣ Normalize resume skills
+    normalized_resume = sorted(set(normalize_skill(s) for s in resume_skills_global))
 
-    matched = sorted(normalized_resume & normalized_job)
-    missing = sorted(normalized_job - normalized_resume)
-    score = int(
-        (len(job_skills_global) - len(missing)) /
-        len(job_skills_global) * 100
-    ) if job_skills_global else 0
+    # 2️⃣ Capability evaluation (role-based)
+    capability_result = evaluate_capabilities(current_role, normalized_resume)
+    capability_score = capability_result["score"]
+
+    # 3️⃣ Expand + normalize job skills
+    expanded_job = expand_job_skills(job_skills_global)
+
+    # keep only job skills that are relevant to resume context
+    # Normalize + deduplicate job skills (do NOT filter using resume)
+    normalized_job = sorted(
+        set(normalize_skill(x) for x in expanded_job)
+    )
+
+    # 🚫 filter out abstract / capability-style requirements
+    ABSTRACT_TERMS = {
+        "system design",
+        "architecture",
+        "software testing",
+        "testing",
+        "ci/cd",
+        "version control",
+        "principles",
+        "web frameworks"
+    }
+
+    normalized_job = [
+        s for s in normalized_job
+        if not any(term in s for term in ABSTRACT_TERMS)
+    ]
+
+
+
+    # 4️⃣ Semantic matching
+    matches, missing = semantic_match(
+        normalized_resume,
+        normalized_job
+    )
+
+    # 5️⃣ Match score (semantic)
+    total_weight = sum(m["similarity"] for m in matches)
+
+    match_score = int(
+        (total_weight / len(normalized_job)) * 100
+    ) if normalized_job else 0
+
+    # 6️⃣ Final blended score
+    final_score = int(
+        (match_score * 0.7) + (capability_score * 0.3)
+    )
+
+    # 7️⃣ Extra strengths (positive skills)
+    extra_strengths = sorted(
+        set(normalized_resume) - set(normalized_job)
+    )
 
     result = {
-    "resume_skills": sorted(normalized_resume),
-    "job_skills_required": sorted(normalized_job),
-    "skills_matched": matched,
-    "skills_missing": missing,
-    "match_score": int(len(matched) / len(normalized_job) * 100)
-}
+        "resume_skills": resume_skills_global,
+        "job_skills_required": job_skills_global,
+        "semantic_matches": matches,
+        "skills_missing": missing,
+        "extra_strengths": extra_strengths,
+        "match_score": final_score
+    }
 
-
-    # SAVE TO HISTORY (keep last 10 only)
     scan_history.append(result)
     scan_history[:] = scan_history[-10:]
 
     return result
+
+    
+
+    
+
+
+
 # =====================================================================
 @app.get("/history")
 async def get_history():
