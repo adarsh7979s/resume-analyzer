@@ -1,42 +1,186 @@
-#root {
-  max-width: 1280px;
+
+/* ===== HERO LAYOUT ===== */
+
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #eef2ff, #f8faff);
+  padding: 60px 20px;
+}
+
+.hero {
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 2rem;
+  background: white;
+  border-radius: 18px;
+  padding: 60px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.08);
+
+  display: flex;
+  flex-direction: column; /* ✅ THIS FIXES EVERYTHING */
+}
+
+
+.hero-content {
+  max-width: 700px;
+}
+
+/* ---------- Global Reset ---------- */
+* {
+  box-sizing: border-box;
+}
+
+/* ---------- Page Background ---------- */
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: linear-gradient(135deg, #eef2ff, #f8fbff);
+}
+
+
+
+/* ---------- Title ---------- */
+.app-container > h2 {
   text-align: center;
+  font-size: 32px;
+  margin-bottom: 40px;
+  letter-spacing: 0.4px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+
+
+/* ---------- Section Headings ---------- */
+h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 20px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* ===== INPUT FIELDS (UI UPGRADE STEP 3) ===== */
+
+input[type="file"],
+input[type="text"] {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 15px;
+  color: #111827;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+input[type="file"] {
+  cursor: pointer;
 }
 
+input::placeholder {
+  color: #9ca3af;
+}
+
+input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+
+/* ---------- Buttons ---------- */
+button {
+  margin-top: 14px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+
+  background: linear-gradient(135deg, #5a7cff, #3b5bff);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+
+  box-shadow: 0 10px 25px rgba(90, 124, 255, 0.35);
+  transition: all 0.25s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 35px rgba(90, 124, 255, 0.45);
+}
+
+/* ---------- Lists ---------- */
+ul {
+  margin-top: 12px;
+  padding-left: 18px;
+}
+
+li {
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+/* ---------- Divider ---------- */
+hr {
+  margin: 30px 0;
+  border: none;
+  border-top: 1px solid #e3e8ff;
+}
+
+/* ---------- Status Text ---------- */
+p {
+  margin-top: 20px;
+  font-weight: 600;
+}
+/* ===== BUTTON STYLES (UI UPGRADE STEP 1) ===== */
+
+button {
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+button:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+/* ===== CARD (SINGLE SOURCE OF TRUTH) ===== */
 .card {
-  padding: 2em;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px;
+  margin-bottom: 32px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+/* ===== SKILL CHIPS (UI UPGRADE STEP 4) ===== */
+
+.skill-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.read-the-docs {
-  color: #888;
+.skill-list li {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
 }

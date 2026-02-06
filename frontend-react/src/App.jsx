@@ -1,11 +1,14 @@
 import { useState } from "react";
 import SkillGap from "./components/SkillGap";
+import "./App.css";
 
 const BASE_URL = "http://127.0.0.1:8000";
 
 function App() {
   const [file, setFile] = useState(null);
   const [role, setRole] = useState("");
+  const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [roleAnalyzed, setRoleAnalyzed] = useState(false);
 
   const [status, setStatus] = useState("");
   const [resumeSkills, setResumeSkills] = useState([]);
@@ -23,7 +26,15 @@ function App() {
     }
 
     setStatus("⏳ Uploading resume...");
+
+    // 🔹 clear old data (VERY IMPORTANT)
     setResumeSkills([]);
+    setJobSkills([]);
+    setScore(null);
+    setMatched([]);
+    setMissing([]);
+    setRoleAnalyzed(false);
+
 
     const formData = new FormData();
     formData.append("file", file);
@@ -38,8 +49,9 @@ function App() {
 
       if (data.resume_skills_found) {
         setResumeSkills(data.resume_skills_found);
+        setResumeUploaded(true);
         setStatus("✅ Resume processed");
-      } else {
+      }else {
         setStatus("❌ Resume processing failed");
       }
     } catch {
@@ -68,8 +80,9 @@ function App() {
 
       if (data.job_skills_required) {
         setJobSkills(data.job_skills_required);
+        setRoleAnalyzed(true);
         setStatus("✅ Role analyzed");
-      } else {
+      }else {
         setStatus("❌ Role analysis failed");
       }
     } catch {
@@ -99,56 +112,87 @@ function App() {
   }
 
   return (
-    <div style={{ padding: "30px", fontFamily: "Arial", maxWidth: "900px" }}>
-      <h2>AI Resume & Skill Gap Analyzer</h2>
+    <div className="page">
+      <div className="hero">
 
-      {/* ============ UPLOAD RESUME ============ */}
-      <h3>1️⃣ Upload Resume</h3>
-      <input type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} />
-      <br /><br />
-      <button onClick={uploadResume}>Upload Resume</button>
+        {/* ===== HERO HEADER ===== */}
+        <header className="hero-header">
+          <h1>AI Resume & Skill Gap Analyzer</h1>
+          <p className="hero-subtitle">
+            Upload your resume and instantly see how well you match a job role.
+          </p>
+        </header>
 
-      {resumeSkills.length > 0 && (
-        <ul>
-          {resumeSkills.map((s, i) => <li key={i}>{s}</li>)}
-        </ul>
-      )}
+        {/* ===== STEP 1 ===== */}
+        <section className="card">
+          <h3>1️⃣ Upload Resume</h3>
 
-      <hr />
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
 
-      {/* ============ ANALYZE ROLE ============ */}
-      <h3>2️⃣ Analyze Job Role</h3>
-      <input
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-        placeholder="e.g. Game Developer"
-      />
-      <br /><br />
-      <button onClick={analyzeRole}>Analyze Role</button>
+          <button onClick={uploadResume}>Upload Resume</button>
 
-      {jobSkills.length > 0 && (
-        <ul>
-          {jobSkills.map((s, i) => <li key={i}>{s}</li>)}
-        </ul>
-      )}
+          {resumeSkills.length > 0 && (
+            <ul className="skill-list">
+              {resumeSkills.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <hr />
+        {/* ===== STEP 2 ===== */}
+        {resumeUploaded && (
+          <section className="card">
+            <h3>2️⃣ Analyze Job Role</h3>
 
-      {/* ============ SKILL GAP ============ */}
-      <h3>3️⃣ Skill Gap</h3>
-      <button onClick={getSkillGap}>Get Skill Gap</button>
+            <input
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="e.g. Game Developer"
+            />
 
-      {/* ✅ THIS IS THE FIX */}
-      {score !== null && (
-        <SkillGap
-          score={score}
-          matched={matched}
-          missing={missing}
-        />
-      )}
+            <button onClick={analyzeRole} disabled={!resumeUploaded}>
+              Analyze Role
+            </button>
 
-      {/* ============ STATUS ============ */}
-      <p style={{ marginTop: "20px" }}>{status}</p>
+            {jobSkills.length > 0 && (
+              <ul className="skill-list">
+                {jobSkills.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+
+        {/* ===== STEP 3 ===== */}
+        {roleAnalyzed && (
+          <section className="card">
+            <h3>3️⃣ Skill Gap</h3>
+
+            <button onClick={getSkillGap} disabled={!roleAnalyzed}>
+              Get Skill Gap
+            </button>
+
+            {score !== null && (
+              <SkillGap
+                score={score}
+                matched={matched}
+                missing={missing}
+              />
+            )}
+          </section>
+        )}
+
+        {/* ===== STATUS ===== */}
+        {status !== "" && <p className="status">{status}</p>}
+
+      </div>
     </div>
   );
 }
