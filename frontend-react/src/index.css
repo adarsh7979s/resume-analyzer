@@ -4,6 +4,14 @@
   font-weight: 400;
 
   color: #eaeaf0;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+html, body {
+  min-height: 100%;
   background: radial-gradient(
       1200px 600px at 10% -10%,
       rgba(99, 102, 241, 0.25),
@@ -15,12 +23,8 @@
       transparent 60%
     ),
     linear-gradient(180deg, #0b0f1a 0%, #0e1324 100%);
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
+
 
 
 /* 🔥 FIX: REMOVE FLEX FROM BODY */
