@@ -372,8 +372,10 @@ async def upload_resume(file: UploadFile = File(...)):
     # ✅ FUTURE-PROOF: Gemini-only extraction
     extracted = gemini_extract_resume_skills(raw_text)
 
-    # store ONLY skill names globally (categories kept internally)
-    resume_skills_global = [s["name"] for s in extracted]
+    # store normalized skill names globally
+    resume_skills_global = [
+        normalize_skill(s["name"]) for s in extracted
+]
 
     return {
         "resume_skills_found": resume_skills_global,
@@ -676,7 +678,7 @@ def expand_job_skills(job_skills: list) -> list:
             expanded.update(["kafka", "rabbitmq"])
 
         elif "programming" in s or "language" in s:
-            expanded.update(["python", "java", "go", "node.js"])
+            expanded.update(["python", "java"])
 
         elif "container" in s:
             expanded.update(["docker", "kubernetes"])

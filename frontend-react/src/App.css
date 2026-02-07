@@ -3,21 +3,33 @@
 
 .page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #eef2ff, #f8faff);
+  background: transparent;
   padding: 60px 20px;
 }
+
 
 .hero {
   max-width: 1100px;
   margin: 0 auto;
-  background: white;
-  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  border-radius: 22px;
   padding: 60px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.08);
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+
+  border: 1px solid rgba(255, 255, 255, 0.25);
 
   display: flex;
-  flex-direction: column; /* ✅ THIS FIXES EVERYTHING */
+  flex-direction: column;
 }
+
+
 
 
 .hero-content {
@@ -33,8 +45,9 @@
 body {
   margin: 0;
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-  background: linear-gradient(135deg, #eef2ff, #f8fbff);
+  background: transparent;
 }
+
 
 
 
@@ -177,10 +190,67 @@ button:disabled {
 }
 
 .skill-list li {
-  background: #eef2ff;
-  color: #3730a3;
-  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  color: #1f2937;
+
+  padding: 8px 16px;
   border-radius: 999px;
+
   font-size: 13px;
+  font-weight: 600;
+
+  border: 1px solid rgba(99, 102, 241, 0.45);
+
+  box-shadow:
+    0 6px 20px rgba(99, 102, 241, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+
+/* ===== HERO TITLE VISIBILITY FIX ===== */
+
+.hero-header h1 {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+
+  color: #ffffff;
+  text-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 0 30px rgba(99, 102, 241, 0.35);
+}
+
+.hero-subtitle {
+  margin-top: 12px;
+  font-size: 16px;
   font-weight: 500;
+
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ===== SECTION HEADING VISIBILITY FIX ===== */
+
+.card h3 {
+  color: #0f172a; /* deep slate */
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* ===== PRIMARY ACTION: UPLOAD RESUME CARD ===== */
+
+.card:first-of-type {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 255, 255, 0.9)
+  );
+
+  border: 1px solid rgba(99, 102, 241, 0.35);
+
+  box-shadow:
+    0 20px 50px rgba(99, 102, 241, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }

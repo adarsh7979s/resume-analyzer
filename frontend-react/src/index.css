@@ -1,10 +1,20 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color: #213547;
-  background-color: #f3f6ff;
+  color: #eaeaf0;
+  background: radial-gradient(
+      1200px 600px at 10% -10%,
+      rgba(99, 102, 241, 0.25),
+      transparent 60%
+    ),
+    radial-gradient(
+      800px 400px at 90% 10%,
+      rgba(14, 165, 233, 0.25),
+      transparent 60%
+    ),
+    linear-gradient(180deg, #0b0f1a 0%, #0e1324 100%);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -12,12 +22,9 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+
 /* 🔥 FIX: REMOVE FLEX FROM BODY */
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
+
 
 /* optional: links */
 a {
