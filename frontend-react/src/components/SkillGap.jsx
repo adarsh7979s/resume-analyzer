@@ -1,47 +1,52 @@
 function SkillGap({ score, matched, missing }) {
   return (
-    <div style={{ marginTop: "30px" }}>
+    <div className="skillgap">
       <h3>Skill Gap Analysis</h3>
 
-      {/* Progress Circle */}
-      <div
-        style={{
-          width: "140px",
-          height: "140px",
-          borderRadius: "50%",
-          margin: "20px auto",
-          background: `conic-gradient(#00c853 ${score * 3.6}deg, #ddd 0deg)`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "26px",
-          fontWeight: "bold",
-        }}
-      >
-        {score}%
+      {/* ===== SCORE VERDICT ===== */}
+      <div className="score-box">
+        <div
+          className="score-circle"
+          style={{
+            background: `conic-gradient(
+              #22c55e ${score * 3.6}deg,
+              rgba(229, 231, 235, 0.6) 0deg
+            )`,
+          }}
+        >
+          <span>{score}%</span>
+        </div>
+        <p>AI Match Score</p>
       </div>
 
-      <div style={{ display: "flex", gap: "40px", marginTop: "20px" }}>
-        {/* Matched */}
-        <div>
-          <h4 style={{ color: "green" }}>✅ Matched Skills</h4>
-          <ul>
-            {matched.map((m, i) => (
-              <li key={i}>
-                {m.job_skill} ({Math.round(m.similarity * 100)}%)
-              </li>
-            ))}
-          </ul>
+      {/* ===== DETAILS ===== */}
+      <div className="gap-sections">
+        <div className="gap-card success">
+          <h4>✔ Matched Skills</h4>
+          {matched.length === 0 ? (
+            <p className="empty">No strong matches found</p>
+          ) : (
+            <ul>
+              {matched.map((m, i) => (
+                <li key={i}>
+                  {m.job_skill} ({Math.round(m.similarity * 100)}%)
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {/* Missing */}
-        <div>
-          <h4 style={{ color: "red" }}>❌ Missing Skills</h4>
-          <ul>
-            {missing.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
+        <div className="gap-card danger">
+          <h4>✘ Missing Skills</h4>
+          {missing.length === 0 ? (
+            <p className="empty">No critical gaps 🎉</p>
+          ) : (
+            <ul>
+              {missing.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

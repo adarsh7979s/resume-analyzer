@@ -53,3 +53,26 @@
   font-size: 14px;
   color: #6b7280;
 }
+/* ===== AI VERDICT SCORE ===== */
+
+.score-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 auto;
+
+  box-shadow:
+    0 20px 40px rgba(34, 197, 94, 0.35),
+    inset 0 0 0 10px rgba(255, 255, 255, 0.9);
+}
+
+.score-circle span {
+  font-size: 32px;
+  font-weight: 800;
+  color: #0f172a;
+}

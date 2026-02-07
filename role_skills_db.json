@@ -196,5 +196,17 @@
     "data visualization",
     "experiment design",
     "model evaluation"
+  ],
+  "game deve": [
+    "c++",
+    "c#",
+    "unity engine",
+    "unreal engine",
+    "data structures & algorithms",
+    "3d math",
+    "version control (git)",
+    "debugging",
+    "optimization",
+    "graphics programming (shaders)"
   ]
 }

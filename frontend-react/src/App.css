@@ -254,3 +254,151 @@ button:disabled {
     0 20px 50px rgba(99, 102, 241, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
+/* ===== SKILL GAP VISIBILITY FIX ===== */
+
+.card .skillgap {
+  color: #0f172a;
+}
+
+.card .skillgap h3 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.card .skillgap h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.card .skillgap ul li {
+  color: #111827;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* ===== AI LOADING ANIMATION ===== */
+
+.ai-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  margin-top: 20px;
+
+  font-weight: 600;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.ai-loader span {
+  margin-left: 6px;
+  letter-spacing: 0.2px;
+}
+
+/* animated dots */
+.ai-loader .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+
+  animation: pulse 1.4s infinite ease-in-out both;
+}
+
+.ai-loader .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+.ai-loader .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.ai-loader .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+}
+
+/* ===== SLIDE-IN ANIMATION ===== */
+
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Animate second step (Analyze Role) */
+.card:nth-of-type(2) {
+  animation: slideFadeIn 0.45s ease-out both;
+}
+/* Animate third step (Skill Gap) */
+.card:nth-of-type(3) {
+  animation: slideFadeIn 0.45s ease-out both;
+}
+
+/* ===== RESPONSIVE LAYOUT (STEP 1) ===== */
+
+@media (max-width: 1024px) {
+  .hero {
+    padding: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 30px 14px;
+  }
+
+  .hero {
+    padding: 28px;
+    border-radius: 18px;
+  }
+
+  .card {
+    padding: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 20px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  h1 {
+    font-size: 32px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+}
+
+/* ===== WIDER LAYOUT FOR LAPTOP / DESKTOP ===== */
+
+@media (min-width: 1200px) {
+  .hero {
+    max-width: 1400px;
+  }
+}

@@ -5,6 +5,9 @@ import "./App.css";
 const BASE_URL = "http://127.0.0.1:8000";
 
 function App() {
+
+  const [isLoading, setIsLoading] = useState(false);
+
   const [file, setFile] = useState(null);
   const [role, setRole] = useState("");
   const [resumeUploaded, setResumeUploaded] = useState(false);
@@ -20,6 +23,8 @@ function App() {
 
   /* ================= UPLOAD RESUME ================= */
   async function uploadResume() {
+    setIsLoading(true);
+
     if (!file) {
       setStatus("❌ Please select a PDF first");
       return;
@@ -49,18 +54,26 @@ function App() {
 
       if (data.resume_skills_found) {
         setResumeSkills(data.resume_skills_found);
-        setResumeUploaded(true);
         setStatus("✅ Resume processed");
+
+        setTimeout(() => {
+          setResumeUploaded(true);
+        }, 600);
+
       }else {
         setStatus("❌ Resume processing failed");
       }
     } catch {
       setStatus("❌ Server error");
     }
+    setIsLoading(false);
+
   }
 
   /* ================= ANALYZE ROLE ================= */
   async function analyzeRole() {
+    setIsLoading(true);
+
     if (!role.trim()) {
       setStatus("❌ Enter a job role first");
       return;
@@ -88,10 +101,14 @@ function App() {
     } catch {
       setStatus("❌ Server error");
     }
+    setIsLoading(false);
+
   }
 
   /* ================= SKILL GAP ================= */
   async function getSkillGap() {
+    setIsLoading(true);
+
     setStatus("⏳ Calculating skill gap...");
 
     try {
@@ -109,6 +126,8 @@ function App() {
     } catch {
       setStatus("❌ Server error");
     }
+    setIsLoading(false);
+
   }
 
   return (
@@ -190,7 +209,17 @@ function App() {
         )}
 
         {/* ===== STATUS ===== */}
-        {status !== "" && <p className="status">{status}</p>}
+        {isLoading && (
+          <div className="ai-loader">
+            <div className="dot" />
+            <div className="dot" />
+            <div className="dot" />
+            <span>AI is analyzing</span>
+          </div>
+        )}
+
+        {!isLoading && status !== "" && <p className="status">{status}</p>}
+
 
       </div>
     </div>
