@@ -4,3 +4,4 @@ pdfplumber
 sentence-transformers
 scikit-learn
 python-multipart
+python-dotenv
