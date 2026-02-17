@@ -260,6 +260,38 @@ CAPABILITY_SKILLS = {
     "database design": ["sql", "mysql"]
 }
 
+BASE_TECH_SKILLS = {
+    "python", "java", "javascript", "typescript", "c", "c++", "c#", "go", "rust",
+    "sql", "mysql", "postgresql", "mongodb", "nosql", "sqlite",
+    "fastapi", "flask", "django", "spring boot", "node.js", "express",
+    "react", "angular", "vue", "html", "css",
+    "numpy", "pandas", "scikit-learn", "tensorflow", "pytorch",
+    "machine learning", "deep learning", "artificial intelligence",
+    "docker", "kubernetes", "git", "github", "linux",
+    "aws", "azure", "gcp", "spark", "apache spark", "hadoop", "airflow",
+    "etl", "data warehousing", "data streaming", "rest api", "graphql"
+}
+
+
+def build_skill_catalog() -> list:
+    """
+    Build a deterministic catalog of skills used for exact phrase extraction.
+    """
+    catalog = set(BASE_TECH_SKILLS)
+
+    for canonical, aliases in SKILL_ALIASES.items():
+        catalog.add(canonical)
+        catalog.update(aliases)
+
+    for skills in CAPABILITY_SKILLS.values():
+        catalog.update(skills)
+
+    return sorted(
+        {normalize_skill(normalize_text(s)) for s in catalog if s and len(s.strip()) >= 2},
+        key=len,
+        reverse=True
+    )
+
 def evaluate_capabilities(role: str, resume_skills: list) -> dict:
     """
     Check which role capabilities are satisfied by resume skills.
@@ -302,9 +334,10 @@ def gemini_extract_resume_skills(resume_text: str) -> list:
 You are an expert technical resume analyzer.
 
 TASK:
-Extract ONLY concrete technical skills explicitly mentioned in the resume.
+Extract ALL concrete technical skills explicitly mentioned in the resume.
 
 STRICT RULES:
+- Include every explicit language, framework, library, platform, database, cloud, devops, tool.
 - Ignore responsibilities, domains, concepts (e.g., "system design")
 - Ignore soft skills
 - Ignore adjectives (scalable, robust, distributed)
@@ -321,6 +354,7 @@ CATEGORIES (mandatory):
 - devops
 - messaging
 - tool
+- platform
 
 OUTPUT FORMAT (VALID JSON ONLY):
 {{
@@ -410,6 +444,26 @@ def keyword_extract_resume_skills(resume_text: str) -> list:
     return found
 
 
+def catalog_extract_resume_skills(resume_text: str) -> list:
+    """
+    Phrase-based extractor from a broad technical skill catalog.
+    Captures explicit skills even if Gemini omits them.
+    """
+    text = f" {normalize_text(resume_text)} "
+    found = []
+
+    for skill in build_skill_catalog():
+        if skill in BLOCKED_SKILLS:
+            continue
+
+        # Phrase boundary check to avoid partial-word false positives.
+        pattern = r"(?<![a-z0-9])" + re.escape(skill) + r"(?![a-z0-9])"
+        if re.search(pattern, text):
+            found.append(skill)
+
+    return found
+
+
 @app.post("/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
     global resume_skills_global
@@ -426,13 +480,18 @@ async def upload_resume(file: UploadFile = File(...)):
     normalized_text = normalize_text(raw_text)
 
 
-    # Hybrid extraction: Gemini + deterministic keyword matching.
+    # Hybrid extraction: Gemini + keyword patterns + catalog phrase matching.
     extracted = gemini_extract_resume_skills(raw_text)
     gemini_skills = [normalize_skill(s["name"]) for s in extracted]
     keyword_skills = [normalize_skill(s) for s in keyword_extract_resume_skills(raw_text)]
+    catalog_skills = [normalize_skill(s) for s in catalog_extract_resume_skills(raw_text)]
 
     # Merge while preserving deterministic ordering for UI/debugging.
-    resume_skills_global = sorted(set(gemini_skills + keyword_skills))
+    merged_skills = sorted(set(gemini_skills + keyword_skills + catalog_skills))
+    resume_skills_global = [
+        s for s in merged_skills
+        if s and s not in BLOCKED_SKILLS and len(s) > 1
+    ]
 
     return {
         "resume_skills_found": resume_skills_global,
@@ -717,84 +776,119 @@ async def analyze_role(request: dict):
     }
 
 
-def expand_job_skills(job_skills: list) -> list:
+SKILL_FAMILIES = {
+    "cloud platform": ["cloud", "aws", "azure", "gcp", "cloud platform"],
+    "database systems": ["sql", "mysql", "postgresql", "mongodb", "nosql", "database"],
+    "version control": ["git", "github", "gitlab", "bitbucket", "version control"],
+    "api development": ["api", "rest", "graphql", "fastapi", "flask", "django"],
+    "containerization": ["docker", "kubernetes", "container", "k8s"],
+    "etl and pipelines": ["etl", "airflow", "dbt", "data pipeline", "data integration"],
+    "data warehousing": ["warehouse", "data warehousing", "snowflake", "bigquery", "redshift"],
+    "data streaming": ["streaming", "kafka", "spark streaming", "flink", "rabbitmq"],
+    "apache spark": ["apache spark", "spark", "pyspark"],
+}
+
+
+def build_requirement_groups(job_skills: list) -> list:
     """
-    Convert abstract job requirements into concrete atomic skills.
-    This makes matching accurate and future-proof.
+    Build fair requirement groups so broad requirements are not over-penalized.
     """
-    expanded = set()
+    groups = []
+    seen_labels = set()
 
-    for skill in job_skills:
-        s = skill.lower()
+    for raw_skill in job_skills:
+        normalized = normalize_text(raw_skill)
+        if not normalized:
+            continue
 
-        if "cloud" in s:
-            expanded.update(["aws", "azure", "gcp"])
+        label = normalize_skill(normalized)
+        alternatives = {label}
+        requirement_type = "core"
+        weight = 1.0
 
-        elif "database" in s:
-            expanded.update(["mysql", "postgresql", "mongodb", "sql", "nosql"])
+        # Map broad requirements into one requirement group with alternatives.
+        for family_label, family_terms in SKILL_FAMILIES.items():
+            if any(term in normalized for term in family_terms):
+                label = family_label
+                alternatives.update(normalize_skill(term) for term in family_terms)
+                requirement_type = "supporting"
+                weight = 0.8
+                break
 
-        elif "message queue" in s or "messaging" in s:
-            expanded.update(["kafka", "rabbitmq"])
+        if label in seen_labels:
+            continue
 
-        elif "programming" in s or "language" in s:
-            expanded.update(["python", "java"])
+        seen_labels.add(label)
+        groups.append({
+            "label": label,
+            "alternatives": sorted(alternatives),
+            "type": requirement_type,
+            "weight": weight
+        })
 
-        elif "container" in s:
-            expanded.update(["docker", "kubernetes"])
-
-        elif "api" in s:
-            expanded.update(["rest", "graphql"])
-
-        else:
-            # fallback: keep original skill
-            expanded.add(s)
-
-    return list(expanded)
+    return groups
 
 
-def semantic_match(resume_skills, job_skills, threshold=0.75):
+def semantic_match_requirements(resume_skills, requirements, threshold=0.75):
+    """
+    Match resume skills against grouped requirements and return weighted score.
+    """
     global embedding_model
 
     matched = []
     missing = []
 
-    if not resume_skills or not job_skills:
-        return matched, missing
+    if not resume_skills or not requirements:
+        return matched, missing, 0
 
-    # 1️⃣ Encode everything once
+    resume_set = set(resume_skills)
     resume_embeddings = embedding_model.encode(resume_skills, convert_to_tensor=True)
-    job_embeddings = embedding_model.encode(job_skills, convert_to_tensor=True)
 
-    # 2️⃣ Compute similarity matrix
-    similarity_matrix = util.cos_sim(job_embeddings, resume_embeddings)
+    weighted_hits = 0.0
+    total_weight = 0.0
 
-    for i, job_skill in enumerate(job_skills):
+    for req in requirements:
+        label = req["label"]
+        alternatives = req["alternatives"]
+        weight = float(req.get("weight", 1.0))
+        total_weight += weight
 
-        # 3️⃣ Exact match check (highest confidence)
-        if job_skill in resume_skills:
+        # Exact match over any alternative (fair for broad requirement groups).
+        exact_hit = next((alt for alt in alternatives if alt in resume_set), None)
+        if exact_hit:
             matched.append({
-                "job_skill": job_skill,
-                "matched_with": job_skill,
+                "job_skill": label,
+                "matched_with": exact_hit,
                 "similarity": 1.0
             })
+            weighted_hits += 1.0 * weight
             continue
 
-        # 4️⃣ Find best semantic match
-        scores = similarity_matrix[i]
-        best_score = float(scores.max())
-        best_index = int(scores.argmax())
-        best_resume_skill = resume_skills[best_index]
+        alt_embeddings = embedding_model.encode(alternatives, convert_to_tensor=True)
+        sim_matrix = util.cos_sim(alt_embeddings, resume_embeddings)
+        best_score = float(sim_matrix.max())
+        best_idx = int(sim_matrix.argmax() % len(resume_skills))
+        best_resume_skill = resume_skills[best_idx]
 
         if best_score >= threshold:
             matched.append({
-                "job_skill": job_skill,
+                "job_skill": label,
                 "matched_with": best_resume_skill,
                 "similarity": round(best_score, 2)
             })
-        else:
-            missing.append(job_skill)
 
-    return matched, missing
+            if best_score >= 0.90:
+                hit_score = 1.0
+            elif best_score >= 0.82:
+                hit_score = 0.85
+            else:
+                hit_score = 0.70
+            weighted_hits += hit_score * weight
+        else:
+            missing.append(label)
+
+    score = int((weighted_hits / total_weight) * 100) if total_weight else 0
+    return matched, missing, score
 
        
 
@@ -816,74 +910,26 @@ async def get_skill_gap():
     capability_result = evaluate_capabilities(current_role, normalized_resume)
     capability_score = capability_result["score"]
 
-    # 3ï¸âƒ£ Expand + normalize job skills
-    expanded_job = expand_job_skills(job_skills_global)
+    # 3ï¸âƒ£ Build grouped requirements (fair scoring, no over-expansion penalties)
+    requirements = build_requirement_groups(job_skills_global)
 
-    # keep only job skills that are relevant to resume context
-    # Normalize + deduplicate job skills (do NOT filter using resume)
-    normalized_job = sorted(
-        set(normalize_skill(x) for x in expanded_job)
-    )
-
-    # ðŸš« filter out abstract / capability-style requirements
-    ABSTRACT_TERMS = {
-        "system design",
-        "architecture",
-        "software testing",
-        "testing",
-        "ci/cd",
-        "version control",
-        "principles",
-        "web frameworks"
-    }
-
-    normalized_job = [
-        s for s in normalized_job
-        if not any(term in s for term in ABSTRACT_TERMS)
-    ]
-
-
-
-    # 4ï¸âƒ£ Semantic matching
-    matches, missing = semantic_match(
+    # 4ï¸âƒ£ Semantic matching against grouped requirements
+    matches, missing, match_score = semantic_match_requirements(
         normalized_resume,
-        normalized_job
+        requirements
     )
 
-    # 5ï¸âƒ£ Match score (semantic)
-    # 5️⃣ Weighted match scoring
-    total_weight = 0
-
-    for m in matches:
-        sim = m["similarity"]
-
-        if sim >= 0.90:
-            total_weight += 1.0
-        elif sim >= 0.80:
-            total_weight += 0.85
-        elif sim >= 0.75:
-            total_weight += 0.70
-
-    if normalized_job:
-        base_score = (total_weight / len(normalized_job)) * 100
-
-        # 🔻 Penalize missing skills slightly
-        penalty = len(missing) * 2   # 2% penalty per missing skill
-
-        match_score = int(max(base_score - penalty, 0))
+    # 5ï¸âƒ£ Blend with capability score only when role has a defined capability model
+    has_capability_model = bool(ROLE_CAPABILITIES.get(current_role))
+    if has_capability_model:
+        final_score = int((match_score * 0.85) + (capability_score * 0.15))
     else:
-        match_score = 0
+        final_score = match_score
 
-
-
-    # 6ï¸âƒ£ Final blended score
-    final_score = int(
-        (match_score * 0.7) + (capability_score * 0.3)
-    )
-
-    # 7ï¸âƒ£ Extra strengths (positive skills)
+    # 6ï¸âƒ£ Extra strengths (positive skills)
+    evaluated_labels = {req["label"] for req in requirements}
     extra_strengths = sorted(
-        set(normalized_resume) - set(normalized_job)
+        set(normalized_resume) - evaluated_labels
     )
 
     result = {
@@ -892,7 +938,13 @@ async def get_skill_gap():
         "semantic_matches": matches,
         "skills_missing": missing,
         "extra_strengths": extra_strengths,
-        "match_score": final_score
+        "match_score": final_score,
+        "scoring_breakdown": {
+            "requirement_match_score": match_score,
+            "capability_score": capability_score if has_capability_model else None,
+            "capability_model_used": has_capability_model,
+            "requirements_evaluated": len(requirements)
+        }
     }
 
     scan_history.append(result)
