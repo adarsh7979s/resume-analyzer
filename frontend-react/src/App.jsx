@@ -1,5 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import SkillGap from "./components/SkillGap";
+import RobotCompanion from "./components/RobotCompanion";
 import "./App.css";
 
 const BASE_URL = "http://127.0.0.1:8000";
@@ -21,19 +22,17 @@ function App() {
   const [matched, setMatched] = useState([]);
   const [missing, setMissing] = useState([]);
 
-  /* ================= UPLOAD RESUME ================= */
   async function uploadResume() {
     setIsLoading(true);
 
     if (!file) {
-      setStatus("❌ Please select a PDF first");
+      setStatus("Please select a PDF first.");
       setIsLoading(false);
       return;
     }
 
-    setStatus("⏳ Uploading resume...");
+    setStatus("Uploading resume...");
 
-    // Clear old data
     setResumeSkills([]);
     setJobSkills([]);
     setScore(null);
@@ -54,32 +53,31 @@ function App() {
 
       if (data.resume_skills_found) {
         setResumeSkills(data.resume_skills_found);
-        setStatus("✅ Resume processed");
+        setStatus("Resume processed.");
 
         setTimeout(() => {
           setResumeUploaded(true);
-        }, 600);
+        }, 350);
       } else {
-        setStatus("❌ Resume processing failed");
+        setStatus("Resume processing failed.");
       }
     } catch {
-      setStatus("❌ Server error");
+      setStatus("Server error.");
     }
 
     setIsLoading(false);
   }
 
-  /* ================= ANALYZE ROLE ================= */
   async function analyzeRole() {
     setIsLoading(true);
 
     if (!role.trim()) {
-      setStatus("❌ Enter a job role first");
+      setStatus("Enter a job role first.");
       setIsLoading(false);
       return;
     }
 
-    setStatus("⏳ Analyzing role...");
+    setStatus("Analyzing role...");
     setJobSkills([]);
 
     try {
@@ -94,21 +92,20 @@ function App() {
       if (data.job_skills_required) {
         setJobSkills(data.job_skills_required);
         setRoleAnalyzed(true);
-        setStatus("✅ Role analyzed");
+        setStatus("Role analyzed.");
       } else {
-        setStatus("❌ Role analysis failed");
+        setStatus("Role analysis failed.");
       }
     } catch {
-      setStatus("❌ Server error");
+      setStatus("Server error.");
     }
 
     setIsLoading(false);
   }
 
-  /* ================= SKILL GAP ================= */
   async function getSkillGap() {
     setIsLoading(true);
-    setStatus("⏳ Calculating skill gap...");
+    setStatus("Calculating skill gap...");
 
     try {
       const res = await fetch(`${BASE_URL}/get-skill-gap`);
@@ -118,13 +115,13 @@ function App() {
         setScore(data.match_score);
         setMatched(data.semantic_matches || []);
         setMissing(data.skills_missing || []);
-        setStatus("✅ Skill gap calculated");
+        setStatus("Skill gap calculated.");
         setIsAnalysisMode(true);
       } else {
-        setStatus("❌ Failed to calculate skill gap");
+        setStatus("Failed to calculate skill gap.");
       }
     } catch {
-      setStatus("❌ Server error");
+      setStatus("Server error.");
     }
 
     setIsLoading(false);
@@ -132,31 +129,34 @@ function App() {
 
   return (
     <div className={`page ${isAnalysisMode ? "analysis-mode" : ""}`}>
+      <div className="bg-orb orb-one" />
+      <div className="bg-orb orb-two" />
+      <div className="bg-grid" />
+      <RobotCompanion
+        resumeUploaded={resumeUploaded}
+        roleAnalyzed={roleAnalyzed}
+        hasScore={score !== null}
+        isLoading={isLoading}
+      />
+
       <div className="hero">
         <div className="content-rail">
-
-          {/* ===== HERO HEADER ===== */}
           <header className="hero-header">
-            <h1>AI Resume & Skill Gap Analyzer</h1>
+            <h1>Resume Skill Intelligence</h1>
             <p className="hero-subtitle">
-              Upload your resume and instantly see how well you match a job role.
+              Upload your resume and measure real fit for a role in three quick steps.
             </p>
           </header>
 
-          {/* ===== STEP 1: UPLOAD RESUME ===== */}
-          <section className="card">
-            <h3>1️⃣ Upload Resume</h3>
-
+          <section className="card card-step">
+            <h3>Step 1 Upload Resume</h3>
             <div className="form-rail">
               <input
                 type="file"
                 accept=".pdf"
                 onChange={(e) => setFile(e.target.files[0])}
               />
-
-              <button onClick={uploadResume}>
-                Upload Resume
-              </button>
+              <button onClick={uploadResume}>Upload Resume</button>
             </div>
 
             {resumeSkills.length > 0 && (
@@ -168,18 +168,15 @@ function App() {
             )}
           </section>
 
-          {/* ===== STEP 2: ANALYZE ROLE ===== */}
           {resumeUploaded && (
-            <section className="card">
-              <h3>2️⃣ Analyze Job Role</h3>
-
-              <div className="form-rail">
+            <section className="card card-step">
+              <h3>Step 2 Analyze Job Role</h3>
+              <div className="form-rail role-rail">
                 <input
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  placeholder="e.g. Game Developer"
+                  placeholder="e.g. AI Engineer"
                 />
-
                 <button onClick={analyzeRole} disabled={!resumeUploaded}>
                   Analyze Role
                 </button>
@@ -195,28 +192,23 @@ function App() {
             </section>
           )}
 
-          {/* ===== STEP 3: SKILL GAP ===== */}
           {roleAnalyzed && (
-            <section className="card">
-              <h3>3️⃣ Skill Gap</h3>
-
+            <section className="card card-step">
+              <h3>Step 3 Run Skill Gap</h3>
               <div className="form-rail">
                 <button onClick={getSkillGap} disabled={!roleAnalyzed}>
                   Get Skill Gap
                 </button>
               </div>
-
-              {score !== null && (
-                <SkillGap
-                  score={score}
-                  matched={matched}
-                  missing={missing}
-                />
-              )}
             </section>
           )}
 
-          {/* ===== STATUS ===== */}
+          {score !== null && (
+            <section className="result-card">
+              <SkillGap score={score} matched={matched} missing={missing} />
+            </section>
+          )}
+
           {isLoading && (
             <div className="ai-loader">
               <div className="dot" />
@@ -226,16 +218,12 @@ function App() {
             </div>
           )}
 
-          {!isLoading && status && (
-            <p className="status">{status}</p>
-          )}
-
+          {!isLoading && status && <p className="status">{status}</p>}
         </div>
 
-        {/* ===== AI RECOMMENDATION PANEL ===== */}
         {isAnalysisMode && (
           <aside className="ai-panel">
-            <h3>AI Recommendations</h3>
+            <h3>Recommendations</h3>
 
             <div className="ai-section">
               <h4>Focus Areas</h4>

@@ -1,4 +1,4 @@
-import re
+﻿import re
 from fastapi import FastAPI, UploadFile, File, Form, Request
 from sentence_transformers import SentenceTransformer, util
 
@@ -89,10 +89,35 @@ def normalize_skill(skill: str) -> str:
 
 
 
+ROLE_ALIASES = {
+    "aiml": "ai engineer",
+    "aiml engineer": "ai engineer",
+    "ai ml": "ai engineer",
+    "ai ml engineer": "ai engineer",
+    "ai/ml": "ai engineer",
+    "ai/ml engineer": "ai engineer",
+    "ml engineer": "ai engineer",
+    "machine learning engineer": "ai engineer",
+}
+
+
+def normalize_role(role: str) -> str:
+    role = role.lower().strip()
+    collapsed = role.replace("/", " ").replace("-", " ").replace("_", " ")
+    collapsed = re.sub(r"\s+", " ", collapsed).strip()
+
+    if role in ROLE_ALIASES:
+        return ROLE_ALIASES[role]
+    if collapsed in ROLE_ALIASES:
+        return ROLE_ALIASES[collapsed]
+
+    return collapsed
+
+
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print("🔑 Gemini key loaded:", bool(GEMINI_API_KEY))
+print("ðŸ”‘ Gemini key loaded:", bool(GEMINI_API_KEY))
 
 
 GEMINI_ENABLED = bool(GEMINI_API_KEY)
@@ -100,9 +125,9 @@ GEMINI_ENABLED = bool(GEMINI_API_KEY)
 if GEMINI_ENABLED:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    print("✅ Gemini AI enabled")
+    print("âœ… Gemini AI enabled")
 else:
-    print("⚠️ Gemini AI disabled — running in offline reasoning mode")
+    print("âš ï¸ Gemini AI disabled â€” running in offline reasoning mode")
 
 
 
@@ -111,7 +136,7 @@ else:
 scan_history = []
 
 # ===================================
-# 🧠 ROLE INTELLIGENCE MEMORY
+# ðŸ§  ROLE INTELLIGENCE MEMORY
 # ===================================
 ROLE_INTELLIGENCE = load_role_db()
 
@@ -122,20 +147,20 @@ current_role = None
 app = FastAPI()
 
 # =====================================================
-# 🧠 LOAD EMBEDDING MODEL ON STARTUP (SAFE WAY)
+# ðŸ§  LOAD EMBEDDING MODEL ON STARTUP (SAFE WAY)
 # =====================================================
 embedding_model = None
 
 @app.on_event("startup")
 def load_embedding_model():
     global embedding_model
-    print("🧠 Loading semantic embedding model...")
+    print("ðŸ§  Loading semantic embedding model...")
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    print("✅ Embedding model loaded")
+    print("âœ… Embedding model loaded")
 
 
 # =====================================================
-# 🧠 SEMANTIC EMBEDDING MODEL (AI UPGRADE)
+# ðŸ§  SEMANTIC EMBEDDING MODEL (AI UPGRADE)
 # =====================================================
 
 
@@ -154,7 +179,7 @@ resume_skills_global = []
 job_skills_global = []
 
 # =====================================================
-# 🧠 STEP 4 — AI CORE (ROLE → CAPABILITY → SKILL)
+# ðŸ§  STEP 4 â€” AI CORE (ROLE â†’ CAPABILITY â†’ SKILL)
 # =====================================================
 
 ROLE_CAPABILITIES = {
@@ -346,12 +371,44 @@ RESUME:
         return cleaned
 
     except Exception as e:
-        print("⚠️ Gemini skill extraction failed:", e)
+        print("âš ï¸ Gemini skill extraction failed:", e)
         return []
 
 # =====================================================================
-# 1️⃣ UPLOAD RESUME
+# 1ï¸âƒ£ UPLOAD RESUME
 # =====================================================================
+
+KEYWORD_SKILL_PATTERNS = {
+    "machine learning": [r"\bmachine learning\b", r"\bml\b"],
+    "deep learning": [r"\bdeep learning\b"],
+    "artificial intelligence": [r"\bartificial intelligence\b", r"\bai\b"],
+    "python": [r"\bpython\b"],
+    "sql": [r"\bsql\b"],
+    "numpy": [r"\bnumpy\b"],
+    "pandas": [r"\bpandas\b"],
+    "scikit-learn": [r"\bscikit\s*-\s*learn\b", r"\bsklearn\b"],
+    "tensorflow": [r"\btensorflow\b"],
+    "pytorch": [r"\bpytorch\b"],
+    "docker": [r"\bdocker\b"],
+    "kubernetes": [r"\bkubernetes\b", r"\bk8s\b"],
+    "rest api": [r"\brest\s*api\b", r"\brestful\s*api\b"],
+    "graphql": [r"\bgraphql\b"],
+}
+
+
+def keyword_extract_resume_skills(resume_text: str) -> list:
+    """
+    Deterministic extractor to catch explicit skills Gemini may miss.
+    """
+    text = normalize_text(resume_text)
+    found = []
+
+    for skill, patterns in KEYWORD_SKILL_PATTERNS.items():
+        if any(re.search(pattern, text) for pattern in patterns):
+            found.append(skill)
+
+    return found
+
 
 @app.post("/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
@@ -369,13 +426,13 @@ async def upload_resume(file: UploadFile = File(...)):
     normalized_text = normalize_text(raw_text)
 
 
-    # ✅ FUTURE-PROOF: Gemini-only extraction
+    # Hybrid extraction: Gemini + deterministic keyword matching.
     extracted = gemini_extract_resume_skills(raw_text)
+    gemini_skills = [normalize_skill(s["name"]) for s in extracted]
+    keyword_skills = [normalize_skill(s) for s in keyword_extract_resume_skills(raw_text)]
 
-    # store normalized skill names globally
-    resume_skills_global = [
-        normalize_skill(s["name"]) for s in extracted
-]
+    # Merge while preserving deterministic ordering for UI/debugging.
+    resume_skills_global = sorted(set(gemini_skills + keyword_skills))
 
     return {
         "resume_skills_found": resume_skills_global,
@@ -391,7 +448,7 @@ async def upload_resume(file: UploadFile = File(...)):
 
 
 # =====================================================================
-#2️⃣ DECIDE ON GEMINI USAGE   
+#2ï¸âƒ£ DECIDE ON GEMINI USAGE   
 #====================================================================
 
 
@@ -420,7 +477,7 @@ def gemini_infer_role_skills(role: str) -> dict:
     if not GEMINI_ENABLED:
         return {}
 
-    print("🤖 Gemini invoked for role:", role)
+    print("ðŸ¤– Gemini invoked for role:", role)
 
     prompt = f"""
 You are an expert AI system.
@@ -452,11 +509,11 @@ JSON format:
 
         text = response.text.strip()
 
-    # 🔐 Extract JSON safely from Gemini response
+    # ðŸ” Extract JSON safely from Gemini response
         match = re.search(r"\{[\s\S]*\}", text)
 
         if not match:
-            print("⚠️ Gemini response had no JSON:", text)
+            print("âš ï¸ Gemini response had no JSON:", text)
             return {}
         
         json_text = match.group(0)
@@ -464,7 +521,7 @@ JSON format:
         try:
             data = json.loads(json_text)
         except Exception as e:
-            print("⚠️ Failed to parse Gemini JSON:", e)
+            print("âš ï¸ Failed to parse Gemini JSON:", e)
             return {}
         if not isinstance(data, dict):
             return {}
@@ -479,13 +536,13 @@ JSON format:
         "skills": [s.lower() for s in skills]
         }
 
-        # 🔒 SAVE role skills to local DB (cache)
+        # ðŸ”’ SAVE role skills to local DB (cache)
         ROLE_INTELLIGENCE[role] = result["skills"]
 
         try:
             save_role_db(dict(ROLE_INTELLIGENCE))
         except Exception as e:
-            print("⚠️ Failed to persist role cache:", e)
+            print("âš ï¸ Failed to persist role cache:", e)
 
 
 
@@ -493,7 +550,7 @@ JSON format:
 
 
     except Exception as e:
-        print("⚠️ Gemini failed:", e)
+        print("âš ï¸ Gemini failed:", e)
         return {}
     
 def gemini_classify_skill_importance(role: str, skills: list) -> dict:
@@ -515,9 +572,9 @@ SKILLS:
 TASK:
 Classify the skills into three categories:
 
-1. core_skills → must-have technical skills
-2. supporting_skills → good to have, learnable
-3. inferred_capabilities → should NOT penalize if missing
+1. core_skills â†’ must-have technical skills
+2. supporting_skills â†’ good to have, learnable
+3. inferred_capabilities â†’ should NOT penalize if missing
 
 RULES:
 - Do NOT invent new skills
@@ -552,15 +609,15 @@ FORMAT:
         }
 
     except Exception as e:
-        print("⚠️ Gemini skill classification failed:", e)
+        print("âš ï¸ Gemini skill classification failed:", e)
         return {}
     
 
 # =====================================================================
-# 3️⃣ ANALYZE ROLE
+# 3ï¸âƒ£ ANALYZE ROLE
 # =====================================================================
 # ==============================
-# 🧠 ROLE SKILL PERSISTENT STORE
+# ðŸ§  ROLE SKILL PERSISTENT STORE
 # ==============================
 
 
@@ -570,15 +627,17 @@ async def analyze_role(request: dict):
 
     
 
-    role = (
+    raw_role = (
         request.get("role")
         or request.get("job_role")
         or request.get("text")
         or ""
     ).lower().strip()
+    role = normalize_role(raw_role)
+
     global current_role
     current_role = role
-    # 🔁 Check cached role skills first
+    # ðŸ” Check cached role skills first
     ROLE_INTELLIGENCE.update(load_role_db())
 
     if role in ROLE_INTELLIGENCE:
@@ -598,9 +657,9 @@ async def analyze_role(request: dict):
     # STEP 1: Internal reasoning
     capabilities = ROLE_CAPABILITIES.get(role)
     if capabilities:
-        print(f"📥 Role '{role}' handled internally (no Gemini)")
+        print(f"ðŸ“¥ Role '{role}' handled internally (no Gemini)")
 
-    # STEP 1A: Unknown role → Gemini PRIMARY
+    # STEP 1A: Unknown role â†’ Gemini PRIMARY
     if not capabilities:
         if GEMINI_ENABLED:
             gemini_result = gemini_infer_role_skills(role)
@@ -693,21 +752,26 @@ def expand_job_skills(job_skills: list) -> list:
     return list(expanded)
 
 
-# =====================================================
-# 🧠 SEMANTIC SKILL MATCHING FUNCTION
-# =====================================================
 def semantic_match(resume_skills, job_skills, threshold=0.75):
     global embedding_model
 
     matched = []
     missing = []
 
-    # Convert resume skills to set for fast exact lookup
-    resume_set = set(resume_skills)
+    if not resume_skills or not job_skills:
+        return matched, missing
 
-    for job_skill in job_skills:
-        # 1️⃣ EXACT MATCH (highest confidence)
-        if job_skill in resume_set:
+    # 1️⃣ Encode everything once
+    resume_embeddings = embedding_model.encode(resume_skills, convert_to_tensor=True)
+    job_embeddings = embedding_model.encode(job_skills, convert_to_tensor=True)
+
+    # 2️⃣ Compute similarity matrix
+    similarity_matrix = util.cos_sim(job_embeddings, resume_embeddings)
+
+    for i, job_skill in enumerate(job_skills):
+
+        # 3️⃣ Exact match check (highest confidence)
+        if job_skill in resume_skills:
             matched.append({
                 "job_skill": job_skill,
                 "matched_with": job_skill,
@@ -715,19 +779,11 @@ def semantic_match(resume_skills, job_skills, threshold=0.75):
             })
             continue
 
-        # 2️⃣ SEMANTIC MATCH (fallback)
-        best_score = 0
-        best_resume_skill = None
-
-        job_vec = embedding_model.encode(job_skill)
-
-        for resume_skill in resume_skills:
-            resume_vec = embedding_model.encode(resume_skill)
-            score = util.cos_sim(job_vec, resume_vec).item()
-
-            if score > best_score:
-                best_score = score
-                best_resume_skill = resume_skill
+        # 4️⃣ Find best semantic match
+        scores = similarity_matrix[i]
+        best_score = float(scores.max())
+        best_index = int(scores.argmax())
+        best_resume_skill = resume_skills[best_index]
 
         if best_score >= threshold:
             matched.append({
@@ -740,9 +796,11 @@ def semantic_match(resume_skills, job_skills, threshold=0.75):
 
     return matched, missing
 
+       
+
 
 # =====================================================================
-# 3️⃣ GET SKILL GAP
+# 3ï¸âƒ£ GET SKILL GAP
 # =====================================================================
 @app.get("/get-skill-gap")
 async def get_skill_gap():
@@ -751,14 +809,14 @@ async def get_skill_gap():
     if not resume_skills_global or not job_skills_global:
         return {"error": "Upload resume & analyze job first"}
 
-    # 1️⃣ Normalize resume skills
+    # 1ï¸âƒ£ Normalize resume skills
     normalized_resume = sorted(set(normalize_skill(s) for s in resume_skills_global))
 
-    # 2️⃣ Capability evaluation (role-based)
+    # 2ï¸âƒ£ Capability evaluation (role-based)
     capability_result = evaluate_capabilities(current_role, normalized_resume)
     capability_score = capability_result["score"]
 
-    # 3️⃣ Expand + normalize job skills
+    # 3ï¸âƒ£ Expand + normalize job skills
     expanded_job = expand_job_skills(job_skills_global)
 
     # keep only job skills that are relevant to resume context
@@ -767,7 +825,7 @@ async def get_skill_gap():
         set(normalize_skill(x) for x in expanded_job)
     )
 
-    # 🚫 filter out abstract / capability-style requirements
+    # ðŸš« filter out abstract / capability-style requirements
     ABSTRACT_TERMS = {
         "system design",
         "architecture",
@@ -786,25 +844,44 @@ async def get_skill_gap():
 
 
 
-    # 4️⃣ Semantic matching
+    # 4ï¸âƒ£ Semantic matching
     matches, missing = semantic_match(
         normalized_resume,
         normalized_job
     )
 
-    # 5️⃣ Match score (semantic)
-    total_weight = sum(m["similarity"] for m in matches)
+    # 5ï¸âƒ£ Match score (semantic)
+    # 5️⃣ Weighted match scoring
+    total_weight = 0
 
-    match_score = int(
-        (total_weight / len(normalized_job)) * 100
-    ) if normalized_job else 0
+    for m in matches:
+        sim = m["similarity"]
 
-    # 6️⃣ Final blended score
+        if sim >= 0.90:
+            total_weight += 1.0
+        elif sim >= 0.80:
+            total_weight += 0.85
+        elif sim >= 0.75:
+            total_weight += 0.70
+
+    if normalized_job:
+        base_score = (total_weight / len(normalized_job)) * 100
+
+        # 🔻 Penalize missing skills slightly
+        penalty = len(missing) * 2   # 2% penalty per missing skill
+
+        match_score = int(max(base_score - penalty, 0))
+    else:
+        match_score = 0
+
+
+
+    # 6ï¸âƒ£ Final blended score
     final_score = int(
         (match_score * 0.7) + (capability_score * 0.3)
     )
 
-    # 7️⃣ Extra strengths (positive skills)
+    # 7ï¸âƒ£ Extra strengths (positive skills)
     extra_strengths = sorted(
         set(normalized_resume) - set(normalized_job)
     )

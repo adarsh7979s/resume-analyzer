@@ -208,5 +208,30 @@
     "debugging",
     "optimization",
     "graphics programming (shaders)"
+  ],
+  "aiml engineer": [
+    "frontend frameworks",
+    "backend frameworks",
+    "database management",
+    "api development",
+    "version control",
+    "cloud platforms",
+    "testing frameworks",
+    "devops basics",
+    "containerization"
+  ],
+  "database engineer": [
+    "sql (advanced)",
+    "database design & modeling",
+    "database administration (dba)",
+    "performance tuning & optimization",
+    "backup & recovery strategies",
+    "etl processes",
+    "relational database management systems (e.g., postgresql, mysql, sql server, oracle)",
+    "nosql databases (e.g., mongodb, cassandra, redis)",
+    "scripting (e.g., python, bash, powershell)",
+    "data warehousing concepts",
+    "cloud database services (e.g., aws rds, azure sql database, google cloud sql)",
+    "database security & access control"
   ]
 }

@@ -1,30 +1,93 @@
+﻿import "./SkillGap.css";
+
 function SkillGap({ score, matched, missing }) {
+  let verdict = "";
+  let color = "";
+
+  if (score >= 80) {
+    verdict = "Strong Match";
+    color = "#16a34a";
+  } else if (score >= 60) {
+    verdict = "Good Match";
+    color = "#0f766e";
+  } else if (score >= 40) {
+    verdict = "Moderate Match";
+    color = "#f59e0b";
+  } else {
+    verdict = "Needs Improvement";
+    color = "#dc2626";
+  }
+
+  const totalTracked = matched.length + missing.length;
+  const coverage = totalTracked
+    ? Math.round((matched.length / totalTracked) * 100)
+    : 0;
+  const topMissing = missing.slice(0, 3);
+
   return (
     <div className="skillgap">
-      <h3>Skill Gap Analysis</h3>
+      <div className="skillgap-head">
+        <h3>Skill Gap Analysis</h3>
+        <p>Fit score for your selected role</p>
+      </div>
 
-      {/* ===== SCORE VERDICT ===== */}
-      <div className="score-box">
+      <div className="meter-wrap">
+        <div className="meter-track">
+          <div className="meter-fill" style={{ width: `${score}%` }} />
+          <div className="meter-marker" style={{ left: `calc(${score}% - 10px)` }}>
+            {score}%
+          </div>
+        </div>
+      </div>
+
+      <div className="score-box centered-score">
         <div
           className="score-circle"
           style={{
             background: `conic-gradient(
-              #22c55e ${score * 3.6}deg,
-              rgba(229, 231, 235, 0.6) 0deg
+              ${color} ${score * 3.6}deg,
+              rgba(203, 213, 225, 0.35) 0deg
             )`,
           }}
         >
           <span>{score}%</span>
         </div>
-        <p>AI Match Score</p>
+
+        <h2 style={{ color }}>{verdict}</h2>
+        <p className="subtext">AI Match Score</p>
       </div>
 
-      {/* ===== DETAILS ===== */}
+      <div className="summary-grid">
+        <article className="summary-card">
+          <p className="summary-label">Coverage</p>
+          <strong>{coverage}%</strong>
+        </article>
+        <article className="summary-card">
+          <p className="summary-label">Matched</p>
+          <strong>{matched.length}</strong>
+        </article>
+        <article className="summary-card">
+          <p className="summary-label">Missing</p>
+          <strong>{missing.length}</strong>
+        </article>
+      </div>
+
+      {topMissing.length > 0 && (
+        <div className="priority-gaps">
+          <h4>Priority Gaps</h4>
+          <div className="priority-list">
+            {topMissing.map((skill, i) => (
+              <span key={`${skill}-${i}`}>{skill}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="gap-sections">
         <div className="gap-card success">
-          <h4>✔ Matched Skills</h4>
+          <h4>Matched Skills</h4>
           {matched.length === 0 ? (
-            <p className="empty">No strong matches found</p>
+            <p className="empty">No strong matches found.</p>
           ) : (
             <ul>
               {matched.map((m, i) => (
@@ -37,9 +100,9 @@ function SkillGap({ score, matched, missing }) {
         </div>
 
         <div className="gap-card danger">
-          <h4>✘ Missing Skills</h4>
+          <h4>Missing Skills</h4>
           {missing.length === 0 ? (
-            <p className="empty">No critical gaps 🎉</p>
+            <p className="empty">No critical gaps.</p>
           ) : (
             <ul>
               {missing.map((s, i) => (
