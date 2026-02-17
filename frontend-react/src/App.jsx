@@ -21,6 +21,7 @@ function App() {
   const [score, setScore] = useState(null);
   const [matched, setMatched] = useState([]);
   const [missing, setMissing] = useState([]);
+  const [recommendations, setRecommendations] = useState(null);
 
   async function uploadResume() {
     setIsLoading(true);
@@ -38,6 +39,7 @@ function App() {
     setScore(null);
     setMatched([]);
     setMissing([]);
+    setRecommendations(null);
     setRoleAnalyzed(false);
 
     const formData = new FormData();
@@ -115,6 +117,7 @@ function App() {
         setScore(data.match_score);
         setMatched(data.semantic_matches || []);
         setMissing(data.skills_missing || []);
+        setRecommendations(data.recommendations || null);
         setStatus("Skill gap calculated.");
         setIsAnalysisMode(true);
       } else {
@@ -136,6 +139,8 @@ function App() {
         resumeUploaded={resumeUploaded}
         roleAnalyzed={roleAnalyzed}
         hasScore={score !== null}
+        score={score}
+        recommendations={recommendations}
         isLoading={isLoading}
       />
 
@@ -151,12 +156,24 @@ function App() {
           <section className="card card-step">
             <h3>Step 1 Upload Resume</h3>
             <div className="form-rail">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setFile(e.target.files[0])}
-              />
-              <button onClick={uploadResume}>Upload Resume</button>
+              <div className="file-upload-shell">
+                <input
+                  id="resume-file-input"
+                  className="file-input-hidden"
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+                <label htmlFor="resume-file-input" className="file-trigger">
+                  Choose Resume PDF
+                </label>
+                <span className={`file-name ${file ? "has-file" : ""}`}>
+                  {file ? file.name : "No file selected"}
+                </span>
+              </div>
+              <button className="primary-btn" onClick={uploadResume}>
+                Upload Resume
+              </button>
             </div>
 
             {resumeSkills.length > 0 && (
@@ -177,7 +194,7 @@ function App() {
                   onChange={(e) => setRole(e.target.value)}
                   placeholder="e.g. AI Engineer"
                 />
-                <button onClick={analyzeRole} disabled={!resumeUploaded}>
+                <button className="primary-btn" onClick={analyzeRole} disabled={!resumeUploaded}>
                   Analyze Role
                 </button>
               </div>
@@ -196,7 +213,7 @@ function App() {
             <section className="card card-step">
               <h3>Step 3 Run Skill Gap</h3>
               <div className="form-rail">
-                <button onClick={getSkillGap} disabled={!roleAnalyzed}>
+                <button className="primary-btn" onClick={getSkillGap} disabled={!roleAnalyzed}>
                   Get Skill Gap
                 </button>
               </div>
@@ -226,20 +243,36 @@ function App() {
             <h3>Recommendations</h3>
 
             <div className="ai-section">
+              <h4>Summary</h4>
+              <p>{recommendations?.summary || "Run skill gap to generate tailored recommendations."}</p>
+            </div>
+
+            <div className="ai-section">
               <h4>Focus Areas</h4>
               <ul>
-                <li>Strengthen missing core skills</li>
-                <li>Improve domain-specific knowledge</li>
-                <li>Practice applied projects</li>
+                {(recommendations?.focus_areas || []).map((item, idx) => (
+                  <li key={`focus-${idx}`}>{item}</li>
+                ))}
               </ul>
             </div>
 
             <div className="ai-section">
-              <h4>Suggested Learning</h4>
+              <h4>Action Plan</h4>
               <ul>
-                <li>Hands-on courses</li>
-                <li>Project-based learning</li>
-                <li>Interview-focused preparation</li>
+                {(recommendations?.action_plan || []).map((item, idx) => (
+                  <li key={`plan-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="ai-section">
+              <h4>Suggested Courses</h4>
+              <ul>
+                {(recommendations?.courses || []).map((course, idx) => (
+                  <li key={`course-${idx}`}>
+                    {course.title} ({course.platform}) - {course.level}
+                  </li>
+                ))}
               </ul>
             </div>
           </aside>

@@ -117,7 +117,7 @@ def normalize_role(role: str) -> str:
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print("ðŸ”‘ Gemini key loaded:", bool(GEMINI_API_KEY))
+print("🔑 Gemini key loaded:", bool(GEMINI_API_KEY))
 
 
 GEMINI_ENABLED = bool(GEMINI_API_KEY)
@@ -125,9 +125,9 @@ GEMINI_ENABLED = bool(GEMINI_API_KEY)
 if GEMINI_ENABLED:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    print("âœ… Gemini AI enabled")
+    print("✅ Gemini AI enabled")
 else:
-    print("âš ï¸ Gemini AI disabled â€” running in offline reasoning mode")
+    print("⚠️ Gemini AI disabled — running in offline reasoning mode")
 
 
 
@@ -154,9 +154,9 @@ embedding_model = None
 @app.on_event("startup")
 def load_embedding_model():
     global embedding_model
-    print("ðŸ§  Loading semantic embedding model...")
+    print("🧠 Loading semantic embedding model...")
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    print("âœ… Embedding model loaded")
+    print("🧠 Embedding model loaded")
 
 
 # =====================================================
@@ -237,6 +237,137 @@ ROLE_CAPABILITIES = {
 ]
 
 }
+
+COURSE_LIBRARY = {
+    "machine learning": [
+        {"title": "Machine Learning Specialization", "platform": "Coursera", "level": "Beginner-Intermediate"},
+        {"title": "Intro to Machine Learning", "platform": "Kaggle Learn", "level": "Beginner"},
+    ],
+    "deep learning": [
+        {"title": "Deep Learning Specialization", "platform": "Coursera", "level": "Intermediate"},
+        {"title": "Practical Deep Learning for Coders", "platform": "fast.ai", "level": "Intermediate"},
+    ],
+    "python": [
+        {"title": "Python for Everybody", "platform": "Coursera", "level": "Beginner"},
+        {"title": "Intermediate Python", "platform": "DataCamp", "level": "Intermediate"},
+    ],
+    "sql": [
+        {"title": "SQL for Data Science", "platform": "Coursera", "level": "Beginner"},
+        {"title": "Intro to SQL", "platform": "Kaggle Learn", "level": "Beginner"},
+    ],
+    "docker": [
+        {"title": "Docker Essentials", "platform": "IBM/Coursera", "level": "Beginner"},
+        {"title": "Docker for Developers", "platform": "KodeKloud", "level": "Intermediate"},
+    ],
+    "kubernetes": [
+        {"title": "Kubernetes for Beginners", "platform": "KodeKloud", "level": "Beginner"},
+        {"title": "CKA Prep Course", "platform": "Linux Foundation", "level": "Advanced"},
+    ],
+    "api development": [
+        {"title": "REST APIs with Flask and Python", "platform": "Udemy", "level": "Intermediate"},
+        {"title": "API Design and Fundamentals", "platform": "Postman Academy", "level": "Beginner"},
+    ],
+    "database systems": [
+        {"title": "Database Systems Concepts", "platform": "edX", "level": "Intermediate"},
+        {"title": "Relational Databases", "platform": "freeCodeCamp", "level": "Beginner"},
+    ],
+    "cloud platform": [
+        {"title": "AWS Cloud Practitioner", "platform": "AWS Skill Builder", "level": "Beginner"},
+        {"title": "Google Cloud Fundamentals", "platform": "Coursera", "level": "Beginner"},
+    ],
+    "data streaming": [
+        {"title": "Apache Kafka Series", "platform": "Udemy", "level": "Intermediate"},
+        {"title": "Real-Time Streaming with Spark", "platform": "Databricks Academy", "level": "Advanced"},
+    ],
+    "apache spark": [
+        {"title": "Big Data Analysis with Spark", "platform": "Coursera", "level": "Intermediate"},
+        {"title": "Spark Fundamentals", "platform": "Databricks Academy", "level": "Beginner"},
+    ],
+}
+
+
+def build_recommendations(
+    role: str,
+    score: int,
+    missing_skills: list,
+    matched_skills: list
+) -> dict:
+    """
+    Build contextual recommendations and course suggestions using score + gaps.
+    """
+    role_display = role.title() if role else "Target Role"
+    top_missing = missing_skills[:5]
+    top_matched = [m["job_skill"] for m in matched_skills[:3]]
+
+    if score >= 85:
+        summary = (
+            f"Strong alignment for {role_display}. Focus on polishing weak spots to maximize interview performance."
+        )
+    elif score >= 65:
+        summary = (
+            f"Good baseline for {role_display}. Closing a few targeted gaps can significantly improve readiness."
+        )
+    else:
+        summary = (
+            f"Core improvement needed for {role_display}. Prioritize missing fundamentals before broadening scope."
+        )
+
+    focus_areas = []
+    if top_missing:
+        focus_areas.extend(
+            [f"Build practical depth in '{skill}' with one project + one guided course." for skill in top_missing[:3]]
+        )
+    else:
+        focus_areas.append("No major skill gaps detected. Focus on project quality and interview preparation.")
+
+    if top_matched:
+        focus_areas.append(
+            f"Leverage strengths ({', '.join(top_matched)}) in portfolio projects and resume bullets."
+        )
+
+    action_plan = [
+        "Week 1: Close the top-priority missing skill with a mini project and notes.",
+        "Week 2: Add role-specific project evidence (GitHub + deployment/demo).",
+        "Week 3: Practice interview questions mapped to missing and matched skills.",
+    ]
+
+    recommended_courses = []
+    seen_titles = set()
+    for skill in top_missing:
+        # Direct mapping first
+        candidates = COURSE_LIBRARY.get(skill, [])
+
+        # Fallback: fuzzy category mapping
+        if not candidates:
+            for key, value in COURSE_LIBRARY.items():
+                if key in skill or skill in key:
+                    candidates = value
+                    break
+
+        for course in candidates[:2]:
+            title = course["title"]
+            if title in seen_titles:
+                continue
+            seen_titles.add(title)
+            recommended_courses.append({
+                "for_skill": skill,
+                "title": title,
+                "platform": course["platform"],
+                "level": course["level"],
+            })
+
+    if not recommended_courses:
+        recommended_courses = [
+            {"for_skill": "general", "title": "Project-Based Learning Path", "platform": "freeCodeCamp", "level": "Beginner-Intermediate"},
+            {"for_skill": "general", "title": "Interview Preparation Track", "platform": "NeetCode / LeetCode", "level": "Intermediate"},
+        ]
+
+    return {
+        "summary": summary,
+        "focus_areas": focus_areas,
+        "action_plan": action_plan,
+        "courses": recommended_courses[:6],
+    }
 
 CAPABILITY_SKILLS = {
     "gameplay programming": ["c#", "unity"],
@@ -939,6 +1070,12 @@ async def get_skill_gap():
         "skills_missing": missing,
         "extra_strengths": extra_strengths,
         "match_score": final_score,
+        "recommendations": build_recommendations(
+            current_role or "",
+            final_score,
+            missing,
+            matches
+        ),
         "scoring_breakdown": {
             "requirement_match_score": match_score,
             "capability_score": capability_score if has_capability_model else None,

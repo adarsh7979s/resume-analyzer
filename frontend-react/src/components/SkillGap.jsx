@@ -3,6 +3,7 @@
 function SkillGap({ score, matched, missing }) {
   let verdict = "";
   let color = "";
+  const isCelebration = score >= 80;
 
   if (score >= 80) {
     verdict = "Strong Match";
@@ -25,7 +26,22 @@ function SkillGap({ score, matched, missing }) {
   const topMissing = missing.slice(0, 3);
 
   return (
-    <div className="skillgap">
+    <div className={`skillgap ${isCelebration ? "celebration-mode" : ""}`}>
+      {isCelebration && (
+        <div className="confetti-field" aria-hidden="true">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <span
+              key={i}
+              className="confetti-piece"
+              style={{
+                left: `${(i * 5.5) % 100}%`,
+                animationDelay: `${(i % 6) * 0.12}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="skillgap-head">
         <h3>Skill Gap Analysis</h3>
         <p>Fit score for your selected role</p>
@@ -55,6 +71,7 @@ function SkillGap({ score, matched, missing }) {
 
         <h2 style={{ color }}>{verdict}</h2>
         <p className="subtext">AI Match Score</p>
+        {isCelebration && <p className="party-note">Party Popper Mode: Excellent Fit</p>}
       </div>
 
       <div className="summary-grid">

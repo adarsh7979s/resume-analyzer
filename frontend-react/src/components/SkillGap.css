@@ -1,5 +1,40 @@
 ﻿.skillgap {
   color: #0f172a;
+  position: relative;
+  overflow: hidden;
+}
+
+.celebration-mode {
+  background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 45%);
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.confetti-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.85;
+  background: linear-gradient(180deg, #22c55e, #14b8a6);
+  animation: confettiDrop 2.2s linear infinite;
+}
+
+.confetti-piece:nth-child(3n) {
+  background: linear-gradient(180deg, #f59e0b, #fb7185);
+}
+
+.confetti-piece:nth-child(4n) {
+  background: linear-gradient(180deg, #38bdf8, #6366f1);
 }
 
 .skillgap-head {
@@ -8,6 +43,8 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .skillgap-head h3 {
@@ -25,6 +62,8 @@
 
 .meter-wrap {
   margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .meter-track {
@@ -60,6 +99,8 @@
   justify-items: center;
   gap: 8px;
   padding: 12px 0 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .score-circle {
@@ -93,11 +134,21 @@
   font-weight: 700;
 }
 
+.party-note {
+  margin: 4px 0 0;
+  color: #15803d;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .summary-card {
@@ -126,6 +177,8 @@
 
 .priority-gaps {
   margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .priority-gaps h4 {
@@ -154,6 +207,8 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .gap-card {
@@ -221,6 +276,15 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes confettiDrop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    transform: translateY(260px) rotate(220deg);
   }
 }
 
