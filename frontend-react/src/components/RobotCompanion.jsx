@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./RobotCompanion.css";
 
 const RANDOM_MOODS = ["wave", "nod", "blink", "bounce", "tilt"];
@@ -104,14 +104,15 @@ function RobotCompanion({
   roleAnalyzed,
   hasScore,
   score,
+  celebrationTick,
   recommendations,
   isLoading,
+  onQuickAction,
 }) {
   const [mood, setMood] = useState("idle");
   const [tipIndex, setTipIndex] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   const [isCelebrating, setIsCelebrating] = useState(false);
-  const lastCelebratedScoreRef = useRef(null);
   const [position, setPosition] = useState(() => {
     try {
       const saved = window.localStorage.getItem("robot_position");
@@ -178,11 +179,6 @@ function RobotCompanion({
     if (typeof score !== "number" || score < 80) {
       return;
     }
-    if (lastCelebratedScoreRef.current === score) {
-      return;
-    }
-
-    lastCelebratedScoreRef.current = score;
     setIsCelebrating(true);
     setMood("bounce");
     setCollapsed(false);
@@ -193,7 +189,7 @@ function RobotCompanion({
     }, 5000);
 
     return () => window.clearTimeout(timer);
-  }, [score]);
+  }, [score, celebrationTick]);
 
   function handleDragStart(event) {
     if (event.button !== undefined && event.button !== 0) {
@@ -228,6 +224,13 @@ function RobotCompanion({
   }
 
   const currentTip = guide.tips[tipIndex];
+  const quickActionLabel = !resumeUploaded
+    ? "Go To Step 1"
+    : !roleAnalyzed
+      ? "Next: Analyze Role"
+      : !hasScore
+        ? "Run Skill Gap"
+        : "Open Recommendations";
   const faceClass = isCelebrating
     ? "face-happy"
     : isLoading
@@ -269,8 +272,8 @@ function RobotCompanion({
           <span className="robot-cheek robot-cheek-left" />
           <span className="robot-cheek robot-cheek-right" />
           <span className="robot-mouth" />
-          <span className="robot-spark robot-spark-left">✨</span>
-          <span className="robot-spark robot-spark-right">✨</span>
+          <span className="robot-spark robot-spark-left">*</span>
+          <span className="robot-spark robot-spark-right">*</span>
         </div>
 
         <div className="robot-torso">
@@ -305,6 +308,14 @@ function RobotCompanion({
           <>
             <p className="robot-tip">{currentTip}</p>
             <div className="robot-actions">
+              <button
+                type="button"
+                className="robot-action-btn robot-action-main"
+                onClick={onQuickAction}
+                disabled={isLoading}
+              >
+                {quickActionLabel}
+              </button>
               <button
                 type="button"
                 className="robot-action-btn"

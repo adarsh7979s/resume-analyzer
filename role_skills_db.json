@@ -233,5 +233,31 @@
     "data warehousing concepts",
     "cloud database services (e.g., aws rds, azure sql database, google cloud sql)",
     "database security & access control"
+  ],
+  "game development": [
+    "cloud platforms (aws, azure, gcp)",
+    "ci/cd tools (e.g., jenkins, gitlab ci, github actions)",
+    "containerization (docker, kubernetes)",
+    "infrastructure as code (terraform, ansible)",
+    "scripting (python, bash)",
+    "version control (git)",
+    "monitoring & logging (e.g., prometheus, grafana, elk stack)",
+    "linux system administration"
+  ],
+  "game devl": [
+    "c plus plus",
+    "c sharp",
+    "unity engine",
+    "unreal engine",
+    "git",
+    "directx",
+    "opengl",
+    "vulkan",
+    "game design principles",
+    "data structures and algorithms",
+    "debugging",
+    "performance optimization",
+    "shader development",
+    "3d math"
   ]
 }

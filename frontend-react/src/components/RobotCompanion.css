@@ -628,3 +628,29 @@
     animation: none;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .robot-shell,
+  .robot-companion,
+  .robot-head,
+  .robot-arm,
+  .robot-core,
+  .robot-spark {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.robot-actions {
+  gap: 6px;
+}
+
+.robot-action-main {
+  background: linear-gradient(180deg, #0ea5a5, #0f766e);
+  color: #f8fafc;
+  border-color: rgba(15, 118, 110, 0.5);
+}
+
+.robot-action-main:disabled {
+  opacity: 0.55;
+}

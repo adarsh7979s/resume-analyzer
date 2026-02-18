@@ -13,9 +13,16 @@
   --accent: #f97316;
   --success: #16a34a;
   --danger: #dc2626;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
 * {
+  box-sizing: border-box;
+}
+
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -25,12 +32,42 @@ body,
   min-height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: "Manrope", "Segoe UI", sans-serif;
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background:
     radial-gradient(1200px 600px at 0% 0%, rgba(14, 165, 165, 0.2), transparent 60%),
     radial-gradient(900px 500px at 100% 0%, rgba(249, 115, 22, 0.12), transparent 55%),
     linear-gradient(180deg, var(--bg-1), var(--bg-2));
+}
+
+/* Normalize form-control rendering across Chromium variants */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="file"] {
+  -webkit-appearance: none;
+  appearance: none;
 }
