@@ -11,7 +11,7 @@ import json
 import shutil
 import tempfile
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 from uuid import uuid4
 from difflib import SequenceMatcher
@@ -29,6 +29,10 @@ ANALYSIS_STORE: Dict[str, Dict[str, Any]] = {}
 ROLE_CACHE_TTL_SECONDS = int(os.getenv("ROLE_CACHE_TTL_SECONDS", "2592000"))  # 30 days
 ROLE_CACHE_SCHEMA_VERSION = 1
 ROLE_CACHE_MODEL_VERSION = os.getenv("ROLE_CACHE_MODEL_VERSION", "gemini-2.5-flash")
+ANALYSIS_TTL_SECONDS = int(os.getenv("ANALYSIS_TTL_SECONDS", "86400"))  # 24h
+ANALYSIS_MAX_RECORDS = int(os.getenv("ANALYSIS_MAX_RECORDS", "500"))
+MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "5"))
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 
 def _new_analysis_record() -> dict:
@@ -36,6 +40,7 @@ def _new_analysis_record() -> dict:
     return {
         "resume_skills": [],
         "job_skills": [],
+        "personal_details": {},
         "current_role": None,
         "history": [],
         "created_at": now,
@@ -43,9 +48,46 @@ def _new_analysis_record() -> dict:
     }
 
 
+def _parse_iso_z(value: str | None) -> datetime | None:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        if value.endswith("Z"):
+            value = value[:-1]
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def cleanup_analysis_store_locked() -> None:
+    now = datetime.utcnow()
+    ttl_cutoff = now - timedelta(seconds=max(60, ANALYSIS_TTL_SECONDS))
+
+    stale_ids = []
+    for aid, record in ANALYSIS_STORE.items():
+        updated_at = _parse_iso_z(record.get("updated_at"))
+        created_at = _parse_iso_z(record.get("created_at"))
+        anchor = updated_at or created_at
+        if anchor and anchor < ttl_cutoff:
+            stale_ids.append(aid)
+
+    for aid in stale_ids:
+        ANALYSIS_STORE.pop(aid, None)
+
+    overflow = len(ANALYSIS_STORE) - max(50, ANALYSIS_MAX_RECORDS)
+    if overflow > 0:
+        ordered = sorted(
+            ANALYSIS_STORE.items(),
+            key=lambda kv: _parse_iso_z(kv[1].get("updated_at")) or datetime.min
+        )
+        for aid, _ in ordered[:overflow]:
+            ANALYSIS_STORE.pop(aid, None)
+
+
 def create_analysis() -> str:
     analysis_id = str(uuid4())
     with ANALYSIS_STORE_LOCK:
+        cleanup_analysis_store_locked()
         ANALYSIS_STORE[analysis_id] = _new_analysis_record()
     return analysis_id
 
@@ -54,6 +96,7 @@ def get_or_create_analysis(analysis_id: str | None) -> tuple[str, dict]:
     if not analysis_id:
         analysis_id = create_analysis()
     with ANALYSIS_STORE_LOCK:
+        cleanup_analysis_store_locked()
         record = ANALYSIS_STORE.get(analysis_id)
         if record is None:
             record = _new_analysis_record()
@@ -65,6 +108,7 @@ def get_analysis(analysis_id: str | None) -> tuple[str, dict | None]:
     if not analysis_id:
         return "", None
     with ANALYSIS_STORE_LOCK:
+        cleanup_analysis_store_locked()
         return analysis_id, ANALYSIS_STORE.get(analysis_id)
 
 
@@ -157,6 +201,51 @@ def normalize_text(text: str) -> str:
     return text.strip()
 
 
+def extract_personal_details(raw_text: str) -> dict:
+    """
+    Lightweight personal detail extraction from resume text.
+    """
+    details = {"name": "", "email": "", "phone": ""}
+    if not raw_text:
+        return details
+
+    # Email
+    email_match = re.search(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b", raw_text)
+    if email_match:
+        details["email"] = email_match.group(0).strip()
+
+    # Phone (keeps original formatting as much as possible)
+    phone_match = re.search(r"(\+?\d[\d\s().-]{8,}\d)", raw_text)
+    if phone_match:
+        details["phone"] = phone_match.group(1).strip()
+
+    # Name heuristic: first short, title-like line near top that is not a section label/contact line.
+    lines = [ln.strip() for ln in raw_text.splitlines() if ln and ln.strip()]
+    blocked = {
+        "resume", "summary", "about", "experience", "education", "skills", "projects",
+        "certifications", "contact", "address", "linkedin", "github", "objective"
+    }
+    for line in lines[:18]:
+        candidate = re.sub(r"\s+", " ", line).strip()
+        if len(candidate) < 3 or len(candidate) > 50:
+            continue
+        if any(ch.isdigit() for ch in candidate):
+            continue
+        candidate_l = candidate.lower()
+        if any(term in candidate_l for term in blocked):
+            continue
+        if "@" in candidate or "http" in candidate_l or "|" in candidate:
+            continue
+        parts = [p for p in re.split(r"\s+", candidate) if p]
+        if not 2 <= len(parts) <= 4:
+            continue
+        if all(re.match(r"^[A-Za-z.'-]+$", p) for p in parts):
+            details["name"] = " ".join(p.capitalize() for p in parts)
+            break
+
+    return details
+
+
 MIN_SKILLS_CONFIDENCE = 5
 MIN_ROLE_SKILLS = 3
 
@@ -181,6 +270,12 @@ SKILL_ALIASES = {
     "c plus plus": ["c++"],
     "data structures and algorithms": ["dsa", "data structures", "algorithms"],
     "machine learning": ["ml"],
+    "golang": ["go lang", "go"],
+    "node js": ["nodejs", "node.js"],
+    "spring boot": ["springboot"],
+    "postgresql": ["postgres", "postgre sql"],
+    "apache kafka": ["kafka"],
+    "rabbitmq": ["rabbit mq"],
 }
 SKILL_ALIASES.update({
     "artificial intelligence": ["ai"],
@@ -203,16 +298,23 @@ SKILL_ALIASES.update({
     "scikit-learn": ["scikit learn", "sklearn"],
     "tf-idf": ["tf idf", "tfidf"],
 })
+SKILL_ALIASES.update({
+    "object oriented programming": ["oop", "oops", "object oriented programming oop"],
+    "streamlit": ["streamlit web interface"],
+    "python": ["python concepts"],
+})
 
 
 def normalize_skill(skill: str) -> str:
-    skill = skill.lower().strip()
+    skill = normalize_text(skill)
 
     for canonical, aliases in SKILL_ALIASES.items():
-        if skill == canonical:
-            return canonical
-        if skill in aliases:
-            return canonical
+        canonical_norm = normalize_text(canonical)
+        alias_norms = [normalize_text(a) for a in aliases]
+        if skill == canonical_norm:
+            return canonical_norm
+        if skill in alias_norms:
+            return canonical_norm
 
     return skill
 
@@ -227,9 +329,20 @@ ROLE_ALIASES = {
     "ai/ml engineer": "ai engineer",
     "ml engineer": "ai engineer",
     "machine learning engineer": "ai engineer",
+    "software engineer": "software engineer",
+    "software developer": "software engineer",
+    "sde": "software engineer",
+    "sde 1": "software engineer",
+    "sde 2": "software engineer",
+    "sde i": "software engineer",
+    "sde ii": "software engineer",
     "game development": "game developer",
     "game dev": "game developer",
     "game developer": "game developer",
+    "english faculty": "english teacher",
+    "school teacher": "teacher",
+    "teacher": "teacher",
+    "english teacher": "english teacher",
 }
 
 
@@ -326,13 +439,19 @@ LEXICAL_WEIGHT = 0.25
 EMBEDDING_CACHE_MAX = int(os.getenv("EMBEDDING_CACHE_MAX", "5000"))
 EMBEDDING_CACHE_LOCK = threading.Lock()
 EMBEDDING_CACHE: Dict[str, Any] = {}
+_CORS_ORIGINS_RAW = os.getenv("CORS_ALLOW_ORIGINS", "*")
+CORS_ALLOW_ORIGINS = [origin.strip() for origin in _CORS_ORIGINS_RAW.split(",") if origin.strip()]
 
 @app.on_event("startup")
 def load_embedding_model():
     global embedding_model
     print("🧠 Loading semantic embedding model...")
-    embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-    print(f"🧠 Embedding model loaded: {EMBEDDING_MODEL_NAME}")
+    try:
+        embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        print(f"🧠 Embedding model loaded: {EMBEDDING_MODEL_NAME}")
+    except Exception as e:
+        embedding_model = None
+        print(f"⚠️ Embedding model unavailable ({e}). Falling back to lexical-only matching.")
 
 
 def encode_with_cache(texts: list) -> Any:
@@ -341,8 +460,11 @@ def encode_with_cache(texts: list) -> Any:
     """
     global embedding_model
 
+    if embedding_model is None:
+        return None
+
     if not texts:
-        return embedding_model.encode([], convert_to_tensor=True)
+        return None
 
     missing = []
     with EMBEDDING_CACHE_LOCK:
@@ -375,7 +497,7 @@ def encode_with_cache(texts: list) -> Any:
 # ---------- CORS ----------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS if CORS_ALLOW_ORIGINS else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -386,6 +508,12 @@ app.add_middleware(
 # =====================================================
 
 ROLE_CAPABILITIES = {
+    "software engineer": [
+        "backend development",
+        "api integration",
+        "database design",
+        "system design and architecture"
+    ],
     "game developer": [
         "gameplay programming",
         "real-time rendering",
@@ -419,6 +547,18 @@ ROLE_CAPABILITIES = {
     "ui development",
     "web performance",
     "api consumption"
+   ],
+   "english teacher": [
+    "language instruction",
+    "curriculum planning",
+    "classroom management",
+    "student assessment"
+   ],
+   "teacher": [
+    "language instruction",
+    "curriculum planning",
+    "classroom management",
+    "student assessment"
    ],
    "ui development": [
     "responsive design",
@@ -821,11 +961,17 @@ CAPABILITY_SKILLS = {
     "frontend development": ["html", "css", "javascript", "react"],
     "backend development": ["python", "fastapi", "apis"],
     "api integration": ["rest", "json"],
-    "database design": ["sql", "mysql"]
+    "database design": ["sql", "mysql"],
+    "system design and architecture": ["system design", "microservices", "api gateway"],
+
+    "language instruction": ["teaching", "communication", "public speaking", "lesson planning"],
+    "curriculum planning": ["curriculum development", "lesson planning", "assessment design"],
+    "classroom management": ["classroom management", "student engagement", "lms"],
+    "student assessment": ["assessment design", "grading", "progress tracking"]
 }
 
 BASE_TECH_SKILLS = {
-    "python", "java", "javascript", "typescript", "c", "c++", "c#", "go", "rust",
+    "python", "java", "javascript", "typescript", "c", "c++", "c#", "go", "rust", "golang",
     "sql", "mysql", "postgresql", "mongodb", "nosql", "sqlite",
     "fastapi", "flask", "django", "spring boot", "node.js", "express",
     "react", "angular", "vue", "html", "css",
@@ -833,7 +979,10 @@ BASE_TECH_SKILLS = {
     "machine learning", "deep learning", "artificial intelligence",
     "docker", "kubernetes", "git", "github", "linux",
     "aws", "azure", "gcp", "spark", "apache spark", "hadoop", "airflow",
-    "etl", "data warehousing", "data streaming", "rest api", "graphql"
+    "etl", "data warehousing", "data streaming", "rest api", "graphql",
+    "redis", "apache kafka", "rabbitmq", "microservices", "event driven architecture",
+    "api gateway", "system design", "database design", "shell scripting",
+    "hibernate", "maven", "jboss", "oracle", "consul", "elk", "newrelic"
 }
 
 
@@ -841,7 +990,7 @@ def build_skill_catalog() -> list:
     """
     Build a deterministic catalog of skills used for exact phrase extraction.
     """
-    catalog = set(BASE_TECH_SKILLS)
+    catalog = set(BASE_TECH_SKILLS) | set(BASE_PROFESSIONAL_SKILLS)
 
     for canonical, aliases in SKILL_ALIASES.items():
         catalog.add(canonical)
@@ -898,8 +1047,9 @@ def gemini_extract_resume_skills(resume_text: str) -> list:
 Extract explicit technical skills from this resume.
 
 Rules:
-- Include only concrete tools/technologies (languages, frameworks, libraries, DB, cloud, devops, platforms).
-- No soft skills, no responsibilities, no explanations.
+- Include explicit, resume-grounded skills across any field (technical, business, operations, healthcare, education, design, finance, etc.).
+- Prefer concrete skills: tools, platforms, methods, domain competencies, certifications, and role-relevant capabilities.
+- No responsibilities, no explanations, no fabricated skills.
 - No duplicates.
 - Return valid JSON only.
 
@@ -970,6 +1120,72 @@ KEYWORD_SKILL_PATTERNS = {
     "kubernetes": [r"\bkubernetes\b", r"\bk8s\b"],
     "rest api": [r"\brest\s*api\b", r"\brestful\s*api\b"],
     "graphql": [r"\bgraphql\b"],
+    "project management": [r"\bproject management\b"],
+    "customer service": [r"\bcustomer service\b"],
+    "sales": [r"\bsales\b"],
+    "digital marketing": [r"\bdigital marketing\b"],
+    "seo": [r"\bseo\b"],
+    "accounting": [r"\baccounting\b"],
+    "financial analysis": [r"\bfinancial analysis\b"],
+    "recruitment": [r"\brecruitment\b", r"\btalent acquisition\b"],
+    "human resources": [r"\bhuman resources\b", r"\bhr\b"],
+    "operations management": [r"\boperations management\b"],
+    "teaching": [r"\bteaching\b"],
+    "patient care": [r"\bpatient care\b"],
+}
+
+BASE_PROFESSIONAL_SKILLS = {
+    "communication", "leadership", "team management", "stakeholder management",
+    "project management", "program management", "operations management", "process improvement",
+    "customer service", "client relationship management", "sales", "negotiation",
+    "presentation", "public speaking", "problem solving", "time management",
+    "excel", "power bi", "tableau", "data analysis", "reporting",
+    "financial analysis", "accounting", "bookkeeping", "budgeting",
+    "digital marketing", "seo", "sem", "content marketing", "social media marketing",
+    "email marketing", "brand management", "market research",
+    "recruitment", "talent acquisition", "human resources", "payroll", "employee engagement",
+    "teaching", "curriculum development", "classroom management", "lesson planning",
+    "assessment design", "grading", "student engagement", "progress tracking", "lms",
+    "patient care", "clinical documentation", "medical coding", "hipaa",
+    "inventory management", "supply chain", "procurement", "quality assurance",
+}
+
+SKILL_SECTION_TITLES = {
+    "skills", "technical skills", "core skills", "core competencies", "competencies",
+    "professional skills", "key skills", "expertise", "tools", "technologies",
+    "toolstechnologies", "skills and abilities", "skills summary", "technical summary"
+}
+
+SKILL_INLINE_PREFIXES = {
+    "skills", "technical skills", "professional skills", "core skills",
+    "tools", "tools technologies used", "tools and technologies used",
+    "technologies used", "tech stack", "stack", "programming languages",
+    "frameworks", "platforms", "databases", "libraries", "core computer science",
+    "languages"
+}
+
+SECTION_BREAK_TITLES = {
+    "experience", "work experience", "employment", "projects", "education",
+    "certifications", "certification", "achievements", "interests",
+    "hobbies", "summary", "about", "contact", "position of responsibility",
+    "internship experience", "qualifications"
+}
+
+NON_SKILL_LINE_TOKENS = {
+    "worked", "responsible", "developed", "built", "improved", "increased", "decreased",
+    "managed", "led", "seeking", "experience", "project", "internship", "summary",
+    "description", "duration", "address", "phone", "email", "linkedin", "github", "http",
+    "cid"
+}
+
+LOW_SIGNAL_PREFIX_TOKENS = {"and", "or", "the", "a", "an", "to", "with", "by", "for"}
+LOW_SIGNAL_FRAGMENT_TOKENS = {
+    "title", "description", "link", "contextual", "interactive", "modular",
+    "demonstrating", "application", "real", "time", "concepts"
+}
+NATURAL_LANGUAGE_TOKENS = {
+    "english", "hindi", "nepali", "french", "spanish", "german", "italian",
+    "portuguese", "arabic", "chinese", "japanese", "korean", "russian"
 }
 
 
@@ -1005,6 +1221,162 @@ def catalog_extract_resume_skills(resume_text: str) -> list:
             found.append(skill)
 
     return found
+
+
+def _looks_like_section_header(line: str) -> bool:
+    stripped = line.strip().strip(":")
+    if not stripped:
+        return False
+
+    norm = normalize_text(stripped)
+    if norm in SECTION_BREAK_TITLES or norm in SKILL_SECTION_TITLES:
+        return True
+
+    letters = [c for c in stripped if c.isalpha()]
+    if letters:
+        uppercase_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
+        if uppercase_ratio >= 0.8 and len(stripped.split()) <= 5:
+            return True
+
+    return False
+
+
+def _split_skill_items(chunk: str) -> list:
+    if not chunk:
+        return []
+
+    cleaned = chunk.replace("•", ",").replace("|", ",")
+    parts = re.split(r",|;|\u2022", cleaned)
+    candidates = []
+
+    for part in parts:
+        item = normalize_text(part)
+        if not item:
+            continue
+
+        item = re.sub(r"\s+", " ", item).strip()
+        if not item:
+            continue
+
+        # Ignore learning-module/course-code fragments like "cid 127 ...".
+        if re.search(r"\bcid\s*\d+\b", item):
+            continue
+
+        if len(item.split()) > 5:
+            continue
+        if any(token in item for token in NON_SKILL_LINE_TOKENS):
+            continue
+
+        tokens = item.split()
+        if tokens and tokens[0] in LOW_SIGNAL_PREFIX_TOKENS:
+            continue
+        if len(tokens) == 1 and tokens[0] in LOW_SIGNAL_FRAGMENT_TOKENS:
+            continue
+        if all(tok in NATURAL_LANGUAGE_TOKENS for tok in tokens):
+            continue
+        # Drop fragments that are mostly grammatical filler rather than skills.
+        filler_hits = sum(
+            1 for tok in tokens
+            if tok in LOW_SIGNAL_PREFIX_TOKENS or tok in LOW_SIGNAL_FRAGMENT_TOKENS
+        )
+        if len(tokens) >= 3 and filler_hits >= 2:
+            continue
+
+        candidates.append(item)
+
+    return candidates
+
+
+def _extract_catalog_hits_from_line(line: str) -> list:
+    normalized = f" {normalize_text(line)} "
+    found = []
+    for skill in build_skill_catalog():
+        if skill in BLOCKED_SKILLS:
+            continue
+        pattern = r"(?<![a-z0-9])" + re.escape(skill) + r"(?![a-z0-9])"
+        if re.search(pattern, normalized):
+            found.append(skill)
+    return found
+
+
+def section_extract_resume_skills(resume_text: str) -> list:
+    """
+    Domain-agnostic extraction from explicit skill sections and inline skill lists.
+    """
+    found = []
+    lines = [line.strip() for line in resume_text.splitlines() if line.strip()]
+    in_skill_section = False
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        line_norm = normalize_text(line)
+
+        # Handle lines like "Skills System Design Database Design Golang"
+        matched_prefix = None
+        for prefix in sorted(SKILL_INLINE_PREFIXES, key=len, reverse=True):
+            if line_norm.startswith(prefix + " "):
+                matched_prefix = prefix
+                break
+        if matched_prefix:
+            suffix = line_norm[len(matched_prefix):].strip()
+            found.extend(_split_skill_items(suffix))
+            found.extend(_extract_catalog_hits_from_line(suffix))
+            # Do not force section-mode from a single inline prefix line.
+            continue
+
+        if _looks_like_section_header(line):
+            in_skill_section = line_norm in SKILL_SECTION_TITLES
+            if ":" in line and in_skill_section:
+                _, after = line.split(":", 1)
+                found.extend(_split_skill_items(after))
+                found.extend(_extract_catalog_hits_from_line(after))
+            continue
+
+        if ":" in line:
+            left, right = line.split(":", 1)
+            left_norm = normalize_text(left)
+            if left_norm in SKILL_INLINE_PREFIXES or any(prefix in left_norm for prefix in SKILL_INLINE_PREFIXES):
+                found.extend(_split_skill_items(right))
+                found.extend(_extract_catalog_hits_from_line(right))
+                continue
+
+        if in_skill_section:
+            found.extend(_split_skill_items(line))
+            found.extend(_extract_catalog_hits_from_line(line))
+
+    return normalize_skill_list(found)
+
+
+def prune_composite_skill_phrases(skills: list) -> list:
+    """
+    Remove phrase artifacts that simply concatenate multiple valid skills.
+    Example: "system design database design golang".
+    """
+    cleaned = normalize_skill_list(skills)
+    final = []
+    for skill in cleaned:
+        token_len = len(skill.split())
+        if token_len < 3:
+            final.append(skill)
+            continue
+
+        wrapped = f" {skill} "
+        contained = 0
+        for other in cleaned:
+            if other == skill:
+                continue
+            if len(other) < 3:
+                continue
+            if f" {other} " in wrapped:
+                contained += 1
+                if contained >= 2:
+                    break
+
+        if contained >= 2:
+            continue
+        final.append(skill)
+
+    return normalize_skill_list(final)
 
 
 def skill_evidence_candidates(skill: str) -> set:
@@ -1053,6 +1425,7 @@ def post_filter_resume_skills(
     gemini_skills: list,
     keyword_skills: list,
     catalog_skills: list,
+    section_skills: list,
     normalized_resume_text: str
 ) -> list:
     """
@@ -1061,8 +1434,9 @@ def post_filter_resume_skills(
     gemini_clean = normalize_skill_list(gemini_skills)
     keyword_clean = normalize_skill_list(keyword_skills)
     catalog_clean = normalize_skill_list(catalog_skills)
+    section_clean = normalize_skill_list(section_skills)
 
-    deterministic = set(keyword_clean) | set(catalog_clean)
+    deterministic = set(keyword_clean) | set(catalog_clean) | set(section_clean)
     accepted = set(deterministic)
 
     for skill in gemini_clean:
@@ -1072,7 +1446,8 @@ def post_filter_resume_skills(
         if skill_has_text_evidence(skill, normalized_resume_text):
             accepted.add(skill)
 
-    return sorted(normalize_skill_list(list(accepted)))
+    pruned = prune_composite_skill_phrases(list(accepted))
+    return sorted(normalize_skill_list(pruned))
 
 
 @app.post("/upload-resume")
@@ -1080,6 +1455,26 @@ async def upload_resume(
     file: UploadFile = File(...),
     analysis_id: str | None = Form(default=None)
 ):
+    filename = (file.filename or "").strip()
+    if not filename.lower().endswith(".pdf"):
+        return {"error": "Only PDF files are supported"}
+
+    if file.content_type and file.content_type not in {
+        "application/pdf",
+        "application/x-pdf",
+        "application/octet-stream"
+    }:
+        return {"error": "Unsupported file type. Upload a valid PDF"}
+
+    try:
+        file.file.seek(0, os.SEEK_END)
+        file_size = file.file.tell()
+        file.file.seek(0)
+        if file_size > MAX_UPLOAD_SIZE_BYTES:
+            return {"error": f"PDF exceeds max size of {MAX_UPLOAD_SIZE_MB}MB"}
+    except Exception:
+        return {"error": "Could not read uploaded file"}
+
     analysis_id, analysis = get_or_create_analysis(analysis_id)
 
     raw_text = ""
@@ -1092,12 +1487,14 @@ async def upload_resume(
         return {"error": "Could not read resume PDF"}
     
     normalized_text = normalize_text(raw_text)
+    personal_details = extract_personal_details(raw_text)
 
 
-    # Token-efficient extraction: deterministic first, then Gemini only when needed.
+    # Domain-agnostic extraction: deterministic first, Gemini as fallback for sparse resumes.
     keyword_skills = [normalize_skill(s) for s in keyword_extract_resume_skills(raw_text)]
     catalog_skills = [normalize_skill(s) for s in catalog_extract_resume_skills(raw_text)]
-    deterministic_count = len(set(keyword_skills + catalog_skills))
+    section_skills = [normalize_skill(s) for s in section_extract_resume_skills(raw_text)]
+    deterministic_count = len(set(keyword_skills + catalog_skills + section_skills))
 
     gemini_skills = []
     if USE_GEMINI_FOR_RESUME and deterministic_count < GEMINI_RESUME_MIN_DETERMINISTIC:
@@ -1108,16 +1505,19 @@ async def upload_resume(
         gemini_skills,
         keyword_skills,
         catalog_skills,
+        section_skills,
         normalized_text
     )
 
     with ANALYSIS_STORE_LOCK:
         analysis["resume_skills"] = resume_skills
+        analysis["personal_details"] = personal_details
         analysis["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
     return {
         "analysis_id": analysis_id,
         "resume_skills_found": resume_skills,
+        "personal_details": personal_details,
         "total_skills_detected": len(resume_skills),
         "confidence": "high" if len(resume_skills) >= MIN_SKILLS_CONFIDENCE else "medium"
     }
@@ -1176,17 +1576,138 @@ def normalize_skill_list(skills: list) -> list:
     return cleaned
 
 
+COMMON_TRANSFERABLE_SKILLS = {
+    "communication",
+    "leadership",
+    "team management",
+    "stakeholder management",
+    "project management",
+    "operations management",
+    "problem solving",
+    "time management",
+}
+
+ROLE_DOMAIN_RULES = {
+    "technology": {
+        "role_terms": [
+            "software", "developer", "engineer", "sde", "backend", "frontend",
+            "full stack", "devops", "data engineer", "ml engineer", "ai engineer"
+        ],
+        "skill_terms": [
+            "python", "java", "javascript", "typescript", "golang", "sql", "mysql",
+            "postgresql", "mongodb", "docker", "kubernetes", "aws", "azure", "gcp",
+            "fastapi", "flask", "django", "spring", "node", "react", "api", "git",
+            "linux", "system design", "microservices", "redis", "kafka"
+        ],
+        "defaults": ["python", "sql", "api development", "version control", "system design"],
+    },
+    "education": {
+        "role_terms": ["teacher", "professor", "lecturer", "tutor", "faculty", "educator"],
+        "skill_terms": [
+            "teaching", "classroom", "curriculum", "lesson", "assessment",
+            "grading", "student", "lms", "public speaking", "communication"
+        ],
+        "defaults": ["teaching", "classroom management", "curriculum development", "lesson planning", "assessment design"],
+    },
+    "marketing": {
+        "role_terms": ["marketing", "seo", "content", "brand", "social media"],
+        "skill_terms": [
+            "digital marketing", "seo", "sem", "content", "brand", "campaign",
+            "market research", "analytics", "email marketing"
+        ],
+        "defaults": ["digital marketing", "seo", "content marketing", "social media marketing", "market research"],
+    },
+    "sales": {
+        "role_terms": ["sales", "account executive", "business development"],
+        "skill_terms": ["sales", "crm", "negotiation", "lead generation", "client relationship"],
+        "defaults": ["sales", "client relationship management", "negotiation", "presentation"],
+    },
+    "human resources": {
+        "role_terms": ["hr", "human resources", "recruiter", "talent acquisition"],
+        "skill_terms": ["recruitment", "talent acquisition", "human resources", "payroll", "employee engagement"],
+        "defaults": ["recruitment", "talent acquisition", "human resources", "employee engagement"],
+    },
+    "finance": {
+        "role_terms": ["finance", "accountant", "financial analyst", "bookkeeper", "auditor"],
+        "skill_terms": ["accounting", "financial analysis", "budgeting", "bookkeeping", "reporting"],
+        "defaults": ["accounting", "financial analysis", "budgeting", "reporting"],
+    },
+    "healthcare": {
+        "role_terms": ["nurse", "doctor", "physician", "healthcare", "medical"],
+        "skill_terms": ["patient care", "clinical", "medical coding", "hipaa", "documentation"],
+        "defaults": ["patient care", "clinical documentation", "medical coding"],
+    },
+}
+
+
+def infer_role_domain(role: str) -> str:
+    role_norm = normalize_text(role)
+    for domain, rule in ROLE_DOMAIN_RULES.items():
+        if any(term in role_norm for term in rule.get("role_terms", [])):
+            return domain
+    return "technology"
+
+
+def local_filter_relevant_role_skills(role: str, skills: list) -> list:
+    """
+    Local safety filter when cache/model returns cross-domain skills.
+    """
+    cleaned = normalize_skill_list(skills)
+    if not cleaned:
+        return []
+
+    domain = infer_role_domain(role)
+    rule = ROLE_DOMAIN_RULES.get(domain, {})
+    allowed_terms = set(rule.get("skill_terms", []))
+    defaults = normalize_skill_list(rule.get("defaults", []))
+
+    filtered = []
+    for skill in cleaned:
+        if skill in COMMON_TRANSFERABLE_SKILLS:
+            filtered.append(skill)
+            continue
+        if any(term in skill for term in allowed_terms):
+            filtered.append(skill)
+
+    filtered = normalize_skill_list(filtered)
+    if len(filtered) >= MIN_ROLE_SKILLS:
+        return filtered
+
+    # Return role-domain defaults when cache is clearly polluted.
+    return defaults
+
+
+def role_based_fallback_skills(role: str) -> list:
+    domain = infer_role_domain(role)
+    if domain in ROLE_DOMAIN_RULES:
+        defaults = normalize_skill_list(ROLE_DOMAIN_RULES[domain].get("defaults", []))
+        if defaults:
+            return defaults
+
+    return normalize_skill_list([
+        "domain knowledge",
+        "communication",
+        "problem solving",
+        "project management",
+        "tools relevant to " + role
+    ])
+
+
 def gemini_filter_relevant_role_skills(role: str, skills: list) -> list:
     """
     Keep only skills that are directly relevant to the given role.
     Gemini must select from provided skills only.
     """
     cleaned_input = normalize_skill_list(skills)
-    if not cleaned_input or not can_use_gemini("role_skill_filter"):
-        return cleaned_input
+    if not cleaned_input:
+        return []
+
+    local_filtered = local_filter_relevant_role_skills(role, cleaned_input)
+    if not can_use_gemini("role_skill_filter"):
+        return local_filtered
 
     prompt = f"""
-You are a technical hiring expert.
+You are a cross-domain hiring expert.
 
 ROLE:
 {role}
@@ -1217,20 +1738,25 @@ FORMAT:
 
         match = re.search(r"\{[\s\S]*\}", response.text)
         if not match:
-            return cleaned_input
+            return local_filtered
 
         data = json.loads(match.group(0))
         filtered = normalize_skill_list(data.get("skills", []))
         if not filtered:
-            return cleaned_input
+            return local_filtered
 
         # Preserve only original candidate skills even if model output drifts.
         allowed = set(cleaned_input)
-        return [s for s in filtered if s in allowed]
+        gemini_filtered = [s for s in filtered if s in allowed]
+        if not gemini_filtered:
+            return local_filtered
+
+        # Final local guard to avoid cross-domain drift from model output.
+        return local_filter_relevant_role_skills(role, gemini_filtered)
 
     except Exception as e:
         print("⚠️ Gemini role-skill relevance filtering failed:", e)
-        return cleaned_input
+        return local_filtered
 
 def gemini_infer_role_skills(role: str) -> dict:
     """
@@ -1302,11 +1828,12 @@ JSON format:
             return {}
 
         normalized_skills = normalize_skill_list(skills)
-        filtered_skills = (
+        gemini_filtered = (
             gemini_filter_relevant_role_skills(role, normalized_skills)
             if ENABLE_GEMINI_ROLE_FILTER
             else normalized_skills
         )
+        filtered_skills = local_filter_relevant_role_skills(role, gemini_filtered)
 
         result = {
         "role": role,
@@ -1470,10 +1997,12 @@ async def analyze_role(request: dict):
             print("⚠️ Failed to remove expired cache entry:", e)
 
     if cached_skills:
+        # Always apply local relevance guard to prevent polluted cache drift.
+        locally_validated = local_filter_relevant_role_skills(role, cached_skills)
         validated_cached_skills = (
-            gemini_filter_relevant_role_skills(role, cached_skills)
+            gemini_filter_relevant_role_skills(role, locally_validated)
             if (ENABLE_GEMINI_ROLE_FILTER or is_legacy)
-            else cached_skills
+            else locally_validated
         )
         if len(validated_cached_skills) >= MIN_ROLE_SKILLS:
             if validated_cached_skills != cached_skills or is_legacy:
@@ -1519,13 +2048,7 @@ async def analyze_role(request: dict):
             }
 
     # Graceful fallback for any role text when Gemini is unavailable/weak.
-    fallback = normalize_skill_list([
-        "domain knowledge",
-        "communication",
-        "problem solving",
-        "project management",
-        "tools relevant to " + role
-    ])
+    fallback = role_based_fallback_skills(role)
     with ANALYSIS_STORE_LOCK:
         analysis["job_skills"] = fallback
         analysis["updated_at"] = datetime.utcnow().isoformat() + "Z"
@@ -1540,7 +2063,12 @@ async def analyze_role(request: dict):
 
 SKILL_FAMILIES = {
     "cloud platform": ["cloud", "aws", "azure", "gcp", "cloud platform"],
-    "database systems": ["sql", "mysql", "postgresql", "mongodb", "nosql", "database"],
+    "database systems": [
+        "sql", "mysql", "postgresql", "mongodb", "nosql", "database",
+        "rds", "aurora", "cloud sql", "azure sql", "managed database",
+        "redshift", "bigquery", "data warehouse", "data warehousing",
+        "terraform database provisioning", "cloudformation database provisioning"
+    ],
     "version control": ["git", "github", "gitlab", "bitbucket", "version control"],
     "api development": ["api", "rest", "graphql", "fastapi", "flask", "django"],
     "containerization": ["docker", "kubernetes", "container", "k8s"],
@@ -1550,13 +2078,24 @@ SKILL_FAMILIES = {
     "apache spark": ["apache spark", "spark", "pyspark"],
 }
 
+INFRA_ROLE_KEYWORDS = {
+    "devops", "platform engineer", "site reliability", "cloud engineer", "sre"
+}
+RELAXED_BACKEND_REQUIREMENTS = {"api development", "python"}
 
-def build_requirement_groups(job_skills: list) -> list:
+
+def is_infra_role(role: str | None) -> bool:
+    role_norm = normalize_text(role or "")
+    return any(keyword in role_norm for keyword in INFRA_ROLE_KEYWORDS)
+
+
+def build_requirement_groups(job_skills: list, role: str | None = None) -> list:
     """
     Build fair requirement groups so broad requirements are not over-penalized.
     """
     groups = []
     seen_labels = set()
+    infra_mode = is_infra_role(role)
 
     for raw_skill in job_skills:
         normalized = normalize_text(raw_skill)
@@ -1579,6 +2118,10 @@ def build_requirement_groups(job_skills: list) -> list:
 
         if label in seen_labels:
             continue
+
+        # Infra-first roles are not expected to be as application-backend heavy.
+        if infra_mode and label in RELAXED_BACKEND_REQUIREMENTS:
+            weight = min(weight, 0.7)
 
         seen_labels.add(label)
         groups.append({
@@ -1627,7 +2170,8 @@ def semantic_match_requirements(resume_skills, requirements, threshold=0.75):
         return matched, missing, 0
 
     resume_set = set(resume_skills)
-    resume_embeddings = encode_with_cache(resume_skills)
+    semantic_enabled = embedding_model is not None
+    resume_embeddings = encode_with_cache(resume_skills) if semantic_enabled else None
 
     weighted_hits = 0.0
     total_weight = 0.0
@@ -1649,17 +2193,38 @@ def semantic_match_requirements(resume_skills, requirements, threshold=0.75):
             weighted_hits += 1.0 * weight
             continue
 
-        alt_embeddings = encode_with_cache(alternatives)
-        sim_matrix = util.cos_sim(alt_embeddings, resume_embeddings)
-        best_semantic = float(sim_matrix.max())
-        best_flat_idx = int(sim_matrix.argmax())
-        best_alt_idx = int(best_flat_idx // len(resume_skills))
-        best_resume_idx = int(best_flat_idx % len(resume_skills))
-        best_alt_skill = alternatives[best_alt_idx]
-        best_resume_skill = resume_skills[best_resume_idx]
+        best_alt_skill = ""
+        best_resume_skill = ""
+        best_lexical = 0.0
+        best_semantic = 0.0
 
-        best_lexical = lexical_similarity(best_alt_skill, best_resume_skill)
-        hybrid_score = (SEMANTIC_WEIGHT * best_semantic) + (LEXICAL_WEIGHT * best_lexical)
+        if semantic_enabled and resume_embeddings is not None:
+            alt_embeddings = encode_with_cache(alternatives)
+            if alt_embeddings is not None:
+                sim_matrix = util.cos_sim(alt_embeddings, resume_embeddings)
+                best_semantic = float(sim_matrix.max())
+                best_flat_idx = int(sim_matrix.argmax())
+                best_alt_idx = int(best_flat_idx // len(resume_skills))
+                best_resume_idx = int(best_flat_idx % len(resume_skills))
+                best_alt_skill = alternatives[best_alt_idx]
+                best_resume_skill = resume_skills[best_resume_idx]
+                best_lexical = lexical_similarity(best_alt_skill, best_resume_skill)
+
+        # Lexical fallback path when semantic model is unavailable.
+        if not best_resume_skill:
+            for alt in alternatives:
+                for res_skill in resume_skills:
+                    score = lexical_similarity(alt, res_skill)
+                    if score > best_lexical:
+                        best_lexical = score
+                        best_alt_skill = alt
+                        best_resume_skill = res_skill
+
+        hybrid_score = (
+            (SEMANTIC_WEIGHT * best_semantic) + (LEXICAL_WEIGHT * best_lexical)
+            if semantic_enabled
+            else best_lexical
+        )
 
         if hybrid_score >= threshold:
             matched.append({
@@ -1809,7 +2374,7 @@ async def get_skill_gap(analysis_id: str | None = None):
     capability_score = capability_result["score"]
 
     # 3ï¸âƒ£ Build grouped requirements (fair scoring, no over-expansion penalties)
-    requirements = build_requirement_groups(job_skills)
+    requirements = build_requirement_groups(job_skills, role)
 
     # 4ï¸âƒ£ Semantic matching against grouped requirements
     matches, missing, match_score = semantic_match_requirements(
@@ -1880,6 +2445,7 @@ async def get_history(analysis_id: str | None = None):
 
     # Backward-compatible aggregate view when analysis_id is not provided.
     with ANALYSIS_STORE_LOCK:
+        cleanup_analysis_store_locked()
         merged_history = []
         for aid, record in ANALYSIS_STORE.items():
             for item in record.get("history", []):

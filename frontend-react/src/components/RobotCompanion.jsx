@@ -10,13 +10,17 @@ function getGuide(
   isLoading,
   score,
   isCelebrating,
-  recommendations
+  recommendations,
+  candidateName
 ) {
+  const greetingName = candidateName?.trim() || "";
+  const hello = greetingName ? `Hi ${greetingName}` : "Hi there";
+
   if (isCelebrating) {
     return {
       title: "Party Mode",
       tips: [
-        `Score ${score}%! Outstanding match.`,
+        `${hello}, score ${score}%! Outstanding match.`,
         "I am doing a happy dance across the screen.",
         "Keep this momentum and start applying now.",
       ],
@@ -27,7 +31,7 @@ function getGuide(
     return {
       title: "Analyzing",
       tips: [
-        "I am parsing your resume and evaluating role fit.",
+        `${hello}, I am parsing your resume and evaluating role fit.`,
         "Give me a few seconds and I will return your score.",
       ],
     };
@@ -37,7 +41,7 @@ function getGuide(
     return {
       title: "Start Here",
       tips: [
-        "Upload your resume PDF to begin.",
+        `${hello}, upload your resume PDF to begin.`,
         "Use a clean single-column layout for better extraction.",
         "After upload, enter your target role in Step 2.",
       ],
@@ -48,6 +52,7 @@ function getGuide(
     return {
       title: "Next Step",
       tips: [
+        `${hello}, great upload.`,
         "Enter a role like Backend Engineer or AI Engineer.",
         "Click Analyze Role to load required skills.",
         "I will compare those skills against your resume.",
@@ -59,7 +64,8 @@ function getGuide(
     return {
       title: "Almost Done",
       tips: [
-        "Run Step 3 to generate your final fit score.",
+        `${hello}, run Step 3 to generate your final fit score.`,
+        "I will calculate your strongest matches and critical gaps.",
         "Then focus first on priority gaps.",
       ],
     };
@@ -106,6 +112,7 @@ function RobotCompanion({
   score,
   celebrationTick,
   recommendations,
+  candidateName,
   isLoading,
   onQuickAction,
 }) {
@@ -138,9 +145,10 @@ function RobotCompanion({
         isLoading,
         score,
         isCelebrating,
-        recommendations
+        recommendations,
+        candidateName
       ),
-    [resumeUploaded, roleAnalyzed, hasScore, isLoading, score, isCelebrating, recommendations]
+    [resumeUploaded, roleAnalyzed, hasScore, isLoading, score, isCelebrating, recommendations, candidateName]
   );
 
   useEffect(() => {

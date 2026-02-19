@@ -1,21 +1,20 @@
 {
-  "devops engineer": [
-    "cloud platforms (aws, azure, gcp)",
-    "kubernetes",
-    "docker",
-    "terraform",
-    "ansible",
-    "ci/cd pipeline automation (e.g., jenkins, gitlab ci, github actions)",
-    "python scripting",
-    "bash scripting",
-    "git",
-    "linux system administration",
-    "monitoring tools (e.g., prometheus, grafana)",
-    "logging tools (e.g., elk stack, splunk)",
-    "networking fundamentals",
-    "security best practices",
-    "infrastructure as code (iac)"
-  ],
+  "devops engineer": {
+    "skills": [
+      "cloud platforms aws azure gcp",
+      "kubernetes",
+      "docker",
+      "ci cd pipeline automation e g jenkins gitlab ci github actions",
+      "python scripting",
+      "git",
+      "linux system administration"
+    ],
+    "schema_version": 1,
+    "model_version": "gemini-2.5-flash",
+    "created_at": 1771506278,
+    "updated_at": 1771506278,
+    "expires_at": 1774098278
+  },
   "database manager": [
     "sql",
     "database administration (dba)",
@@ -89,17 +88,20 @@
     "data preprocessing",
     "evaluation metrics"
   ],
-  "backend engineer": [
-    "python",
-    "sql",
-    "apache spark",
-    "cloud data platforms (e.g., aws, azure, gcp)",
-    "etl development",
-    "data warehousing",
-    "database design",
-    "data streaming",
-    "version control (git)"
-  ],
+  "backend engineer": {
+    "skills": [
+      "python",
+      "sql",
+      "database design",
+      "data streaming",
+      "version control git"
+    ],
+    "schema_version": 1,
+    "model_version": "gemini-2.5-flash",
+    "created_at": 1771503018,
+    "updated_at": 1771503018,
+    "expires_at": 1774095018
+  },
   "full stack dev": [
     "html",
     "css",
@@ -130,18 +132,23 @@
     "data wrangling",
     "data visualization"
   ],
-  "english teacher": [
-    "proficiency in multiple programming languages",
-    "software architecture and design patterns",
-    "data structures and algorithms",
-    "version control systems (git)",
-    "database management (sql and nosql)",
-    "cloud computing platforms (aws, azure, gcp)",
-    "containerization and orchestration (docker, kubernetes)",
-    "ci/cd pipeline development",
-    "system monitoring and debugging",
-    "api design and development"
-  ],
+  "english teacher": {
+    "skills": [
+      "teaching",
+      "classroom management",
+      "curriculum development",
+      "lesson planning",
+      "assessment design",
+      "communication",
+      "public speaking",
+      "lms"
+    ],
+    "schema_version": 1,
+    "model_version": "gemini-2.5-flash",
+    "created_at": 1771503179,
+    "updated_at": 1771503179,
+    "expires_at": 1774095179
+  },
   "game dev": [
     "sql",
     "python",
@@ -259,5 +266,39 @@
     "performance optimization",
     "shader development",
     "3d math"
-  ]
+  ],
+  "software engineer": {
+    "skills": [
+      "python",
+      "java",
+      "api development",
+      "database design",
+      "system design",
+      "microservices",
+      "docker",
+      "kubernetes",
+      "aws",
+      "sql",
+      "git"
+    ],
+    "schema_version": 1,
+    "model_version": "gemini-2.5-flash",
+    "created_at": 1771505598,
+    "updated_at": 1771505598,
+    "expires_at": 1774097598
+  },
+  "senior devops engineer": {
+    "skills": [
+      "python",
+      "sql",
+      "api development",
+      "version control",
+      "system design"
+    ],
+    "schema_version": 1,
+    "model_version": "gemini-2.5-flash",
+    "created_at": 1771506569,
+    "updated_at": 1771506569,
+    "expires_at": 1774098569
+  }
 }
