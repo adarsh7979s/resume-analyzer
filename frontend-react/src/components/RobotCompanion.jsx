@@ -152,10 +152,6 @@ function RobotCompanion({
   );
 
   useEffect(() => {
-    setTipIndex(0);
-  }, [guide.title]);
-
-  useEffect(() => {
     const intervalId = window.setInterval(() => {
       const next = RANDOM_MOODS[Math.floor(Math.random() * RANDOM_MOODS.length)];
       setMood(next);
@@ -187,16 +183,21 @@ function RobotCompanion({
     if (typeof score !== "number" || score < 80) {
       return;
     }
-    setIsCelebrating(true);
-    setMood("bounce");
-    setCollapsed(false);
 
-    const timer = window.setTimeout(() => {
+    const startTimer = window.setTimeout(() => {
+      setIsCelebrating(true);
+      setMood("bounce");
+      setCollapsed(false);
+    }, 0);
+    const stopTimer = window.setTimeout(() => {
       setIsCelebrating(false);
       setMood("idle");
     }, 5000);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(startTimer);
+      window.clearTimeout(stopTimer);
+    };
   }, [score, celebrationTick]);
 
   function handleDragStart(event) {
@@ -231,7 +232,7 @@ function RobotCompanion({
     window.addEventListener("pointerup", onEnd);
   }
 
-  const currentTip = guide.tips[tipIndex];
+  const currentTip = guide.tips[tipIndex % guide.tips.length] || guide.tips[0];
   const quickActionLabel = !resumeUploaded
     ? "Go To Step 1"
     : !roleAnalyzed

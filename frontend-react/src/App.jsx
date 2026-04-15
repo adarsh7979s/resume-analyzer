@@ -3,7 +3,20 @@ import SkillGap from "./components/SkillGap";
 import RobotCompanion from "./components/RobotCompanion";
 import "./App.css";
 
-const BASE_URL = "http://127.0.0.1:8000";
+function resolveBaseUrl() {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  return "http://127.0.0.1:8000";
+}
+
+const BASE_URL = resolveBaseUrl();
 
 const ANALYSIS_STEPS = [
   "Mapping role requirements",

@@ -121,7 +121,7 @@ def load_role_db():
             with open(ROLE_DB_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
         if not isinstance(data, dict):
-            print("⚠️ role_skills_db.json root is not an object. Starting with empty cache.")
+            print("[WARN] role_skills_db.json root is not an object. Starting with empty cache.")
             return {}
         return data
     except json.JSONDecodeError as e:
@@ -129,13 +129,13 @@ def load_role_db():
         backup_file = os.path.join(BASE_DIR, f"role_skills_db.corrupt.{timestamp}.json")
         try:
             shutil.copy2(ROLE_DB_FILE, backup_file)
-            print(f"⚠️ Corrupted role DB backed up to: {backup_file}")
+            print(f"[WARN] Corrupted role DB backed up to: {backup_file}")
         except Exception as backup_error:
-            print(f"⚠️ Failed to backup corrupted role DB: {backup_error}")
-        print(f"⚠️ Failed to parse role DB ({e}). Starting with empty cache.")
+            print(f"[WARN] Failed to backup corrupted role DB: {backup_error}")
+        print(f"[WARN] Failed to parse role DB ({e}). Starting with empty cache.")
         return {}
     except Exception as e:
-        print(f"⚠️ Failed to load role DB ({e}). Starting with empty cache.")
+        print(f"[WARN] Failed to load role DB ({e}). Starting with empty cache.")
         return {}
 
 def save_role_db(data):
@@ -265,7 +265,7 @@ BLOCKED_SKILLS = {
 }
 
 SKILL_ALIASES = {
-    "unity engine": ["unity", "unity3d"],
+    "unity engine": ["unity", "unity3d", "unity 3d"],
     "unreal engine": ["unreal", "ue4", "ue5"],
     "c plus plus": ["c++"],
     "data structures and algorithms": ["dsa", "data structures", "algorithms"],
@@ -281,14 +281,14 @@ SKILL_ALIASES.update({
     "artificial intelligence": ["ai"],
     "virtual reality": ["vr"],
     "rest api": ["rest", "restful api"],
-    "android studio": ["android"],
+    "android studio": ["android", "android studios"],
     "visualization": ["data visualization"]
 })
 SKILL_ALIASES.update({
     "figma": ["figma design", "ui figma"],
     "virtual reality": ["vr"],
     "augmented reality": ["ar"],
-    "android studio": ["android"],
+    "android studio": ["android", "android studios"],
     "data visualization": ["visualization", "viz"],
 })
 SKILL_ALIASES.update({
@@ -362,7 +362,7 @@ def normalize_role(role: str) -> str:
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print("🔑 Gemini key loaded:", bool(GEMINI_API_KEY))
+print("[INFO] Gemini key loaded:", bool(GEMINI_API_KEY))
 
 
 GEMINI_ENABLED = bool(GEMINI_API_KEY)
@@ -404,7 +404,7 @@ def can_use_gemini(feature: str = "generic") -> bool:
             GEMINI_WINDOW_CALL_COUNT = 0
 
         if GEMINI_WINDOW_CALL_COUNT >= GEMINI_MAX_CALLS_PER_HOUR:
-            print(f"⚠️ Gemini budget reached ({GEMINI_MAX_CALLS_PER_HOUR}/hour). Skipping: {feature}")
+            print(f"[WARN] Gemini budget reached ({GEMINI_MAX_CALLS_PER_HOUR}/hour). Skipping: {feature}")
             return False
 
         GEMINI_WINDOW_CALL_COUNT += 1
@@ -413,9 +413,9 @@ def can_use_gemini(feature: str = "generic") -> bool:
 if GEMINI_ENABLED:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    print("✅ Gemini AI enabled")
+    print("[INFO] Gemini AI enabled")
 else:
-    print("⚠️ Gemini AI disabled — running in offline reasoning mode")
+    print("[WARN] Gemini AI disabled - running in offline reasoning mode")
 
 
 
@@ -445,13 +445,13 @@ CORS_ALLOW_ORIGINS = [origin.strip() for origin in _CORS_ORIGINS_RAW.split(",") 
 @app.on_event("startup")
 def load_embedding_model():
     global embedding_model
-    print("🧠 Loading semantic embedding model...")
+    print("[INFO] Loading semantic embedding model...")
     try:
         embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-        print(f"🧠 Embedding model loaded: {EMBEDDING_MODEL_NAME}")
+        print(f"[INFO] Embedding model loaded: {EMBEDDING_MODEL_NAME}")
     except Exception as e:
         embedding_model = None
-        print(f"⚠️ Embedding model unavailable ({e}). Falling back to lexical-only matching.")
+        print(f"[WARN] Embedding model unavailable ({e}). Falling back to lexical-only matching.")
 
 
 def encode_with_cache(texts: list) -> Any:
@@ -974,7 +974,8 @@ BASE_TECH_SKILLS = {
     "python", "java", "javascript", "typescript", "c", "c++", "c#", "go", "rust", "golang",
     "sql", "mysql", "postgresql", "mongodb", "nosql", "sqlite",
     "fastapi", "flask", "django", "spring boot", "node.js", "express",
-    "react", "angular", "vue", "html", "css",
+    "react", "angular", "vue", "html", "css", "flutter", "dart", "android studio",
+    "blender", "vs code",
     "numpy", "pandas", "scikit-learn", "tensorflow", "pytorch",
     "machine learning", "deep learning", "artificial intelligence",
     "docker", "kubernetes", "git", "github", "linux",
@@ -1098,7 +1099,7 @@ Resume:
         return cleaned
 
     except Exception as e:
-        print("âš ï¸ Gemini skill extraction failed:", e)
+        print("[WARN] Gemini skill extraction failed:", e)
         return []
 
 # =====================================================================
@@ -1187,6 +1188,34 @@ NATURAL_LANGUAGE_TOKENS = {
     "english", "hindi", "nepali", "french", "spanish", "german", "italian",
     "portuguese", "arabic", "chinese", "japanese", "korean", "russian"
 }
+
+
+def _is_composite_skill_phrase(item: str) -> bool:
+    """
+    Detect phrases that are really multiple skills glued together.
+    """
+    if not item or " and " not in item:
+        return False
+
+    normalized_item = normalize_skill(item)
+    fragments = [
+        normalize_text(fragment)
+        for fragment in re.split(r"\band\b|/|\+|&", item)
+        if fragment and fragment.strip()
+    ]
+    fragment_hits = []
+    catalog = set(build_skill_catalog())
+
+    for fragment in fragments:
+        canonical = normalize_skill(fragment)
+        if canonical in catalog:
+            fragment_hits.append(canonical)
+
+    unique_hits = {hit for hit in fragment_hits if hit}
+    if len(unique_hits) < 2:
+        return False
+
+    return normalized_item not in unique_hits
 
 
 def keyword_extract_resume_skills(resume_text: str) -> list:
@@ -1280,6 +1309,9 @@ def _split_skill_items(chunk: str) -> list:
             if tok in LOW_SIGNAL_PREFIX_TOKENS or tok in LOW_SIGNAL_FRAGMENT_TOKENS
         )
         if len(tokens) >= 3 and filler_hits >= 2:
+            continue
+
+        if _is_composite_skill_phrase(item):
             continue
 
         candidates.append(item)
@@ -1755,7 +1787,7 @@ FORMAT:
         return local_filter_relevant_role_skills(role, gemini_filtered)
 
     except Exception as e:
-        print("⚠️ Gemini role-skill relevance filtering failed:", e)
+        print("[WARN] Gemini role-skill relevance filtering failed:", e)
         return local_filtered
 
 def gemini_infer_role_skills(role: str) -> dict:
@@ -1769,7 +1801,7 @@ def gemini_infer_role_skills(role: str) -> dict:
     if not can_use_gemini("infer_role_skills"):
         return {}
 
-    print("ðŸ¤– Gemini invoked for role:", role)
+    print("[INFO] Gemini invoked for role:", role)
 
     prompt = f"""
 You are an expert AI system.
@@ -1809,7 +1841,7 @@ JSON format:
         match = re.search(r"\{[\s\S]*\}", text)
 
         if not match:
-            print("âš ï¸ Gemini response had no JSON:", text)
+            print("[WARN] Gemini response had no JSON:", text)
             return {}
         
         json_text = match.group(0)
@@ -1817,7 +1849,7 @@ JSON format:
         try:
             data = json.loads(json_text)
         except Exception as e:
-            print("âš ï¸ Failed to parse Gemini JSON:", e)
+            print("[WARN] Failed to parse Gemini JSON:", e)
             return {}
         if not isinstance(data, dict):
             return {}
@@ -1846,7 +1878,7 @@ JSON format:
             try:
                 save_role_db(dict(ROLE_INTELLIGENCE))
             except Exception as e:
-                print("âš ï¸ Failed to persist role cache:", e)
+                print("[WARN] Failed to persist role cache:", e)
 
 
 
@@ -1854,7 +1886,7 @@ JSON format:
 
 
     except Exception as e:
-        print("âš ï¸ Gemini failed:", e)
+        print("[WARN] Gemini failed:", e)
         return {}
     
 def gemini_classify_skill_importance(role: str, skills: list) -> dict:
@@ -1913,7 +1945,7 @@ FORMAT:
         }
 
     except Exception as e:
-        print("âš ï¸ Gemini skill classification failed:", e)
+        print("[WARN] Gemini skill classification failed:", e)
         return {}
     
 
@@ -1950,7 +1982,7 @@ async def analyze_role(request: dict):
     # STEP 1: Internal reasoning for known roles (preferred over cache).
     capabilities = ROLE_CAPABILITIES.get(role)
     if capabilities:
-        print(f"ðŸ“¥ Role '{role}' handled internally (no Gemini)")
+        print(f"[INFO] Role '{role}' handled internally (no Gemini)")
         # STEP 2: Internal skill inference
         skills = []
         for cap in capabilities:
@@ -1994,7 +2026,7 @@ async def analyze_role(request: dict):
         try:
             save_role_db(dict(ROLE_INTELLIGENCE))
         except Exception as e:
-            print("⚠️ Failed to remove expired cache entry:", e)
+            print("[WARN] Failed to remove expired cache entry:", e)
 
     if cached_skills:
         # Always apply local relevance guard to prevent polluted cache drift.
@@ -2010,7 +2042,7 @@ async def analyze_role(request: dict):
                 try:
                     save_role_db(dict(ROLE_INTELLIGENCE))
                 except Exception as e:
-                    print("⚠️ Failed to persist validated cache:", e)
+                    print("[WARN] Failed to persist validated cache:", e)
             job_skills = sorted(set(validated_cached_skills))
             with ANALYSIS_STORE_LOCK:
                 analysis["job_skills"] = job_skills
@@ -2028,7 +2060,7 @@ async def analyze_role(request: dict):
         try:
             save_role_db(dict(ROLE_INTELLIGENCE))
         except Exception as e:
-            print("⚠️ Failed to remove stale cache entry:", e)
+            print("[WARN] Failed to remove stale cache entry:", e)
 
     # STEP 6: Unknown role -> Gemini primary.
     if USE_GEMINI_FOR_UNKNOWN_ROLE:
@@ -2398,6 +2430,8 @@ async def get_skill_gap(analysis_id: str | None = None):
 
     result = {
         "analysis_id": analysis_id,
+        "role": role,
+        "current_role": role,
         "resume_skills": resume_skills,
         "job_skills_required": job_skills,
         "semantic_matches": matches,
@@ -2406,6 +2440,8 @@ async def get_skill_gap(analysis_id: str | None = None):
         "match_score": final_score,
         "ats_score": ats["ats_score"],
         "ats_breakdown": ats["ats_breakdown"],
+        "created_at": analysis.get("created_at"),
+        "updated_at": datetime.utcnow().isoformat() + "Z",
         "recommendations": build_recommendations(
             role or "",
             final_score,
@@ -2424,7 +2460,7 @@ async def get_skill_gap(analysis_id: str | None = None):
         history = analysis.setdefault("history", [])
         history.append(result)
         analysis["history"] = history[-10:]
-        analysis["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        analysis["updated_at"] = result["updated_at"]
 
     return result
 
@@ -2451,5 +2487,8 @@ async def get_history(analysis_id: str | None = None):
             for item in record.get("history", []):
                 row = dict(item)
                 row.setdefault("analysis_id", aid)
+                row.setdefault("role", record.get("current_role"))
+                row.setdefault("current_role", record.get("current_role"))
+                row.setdefault("updated_at", record.get("updated_at"))
                 merged_history.append(row)
     return {"history": merged_history[-10:]}
