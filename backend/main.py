@@ -1,4 +1,4 @@
-﻿import re
+import re
 from fastapi import FastAPI, UploadFile, File, Form, Request
 from sentence_transformers import SentenceTransformer, util
 
@@ -1482,6 +1482,37 @@ def post_filter_resume_skills(
     return sorted(normalize_skill_list(pruned))
 
 
+def gemini_validate_resume(text: str) -> bool:
+    """
+    Ask Gemini if the extracted text belongs to a Resume/CV.
+    """
+    if not can_use_gemini("validate_resume") or not text.strip():
+        return False
+        
+    prompt = f"""
+Analyze the following text extracted from a PDF document.
+Determine if it is a Resume / Curriculum Vitae (CV) of a person. Look for work history, education, skills, and personal details.
+Reply strictly in JSON format with a single boolean field "is_resume": true or false.
+
+Text:
+{text[:3000]}
+"""
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL_VERSION,
+            contents=prompt,
+        )
+        match = re.search(r"\{[\s\S]*\}", response.text)
+        if match:
+            data = json.loads(match.group(0))
+            return bool(data.get("is_resume", False))
+        return False
+    except Exception as e:
+        print("[WARN] Gemini validate resume failed:", e)
+        return False
+
+
+
 @app.post("/upload-resume")
 async def upload_resume(
     file: UploadFile = File(...),
@@ -1518,6 +1549,30 @@ async def upload_resume(
     except Exception:
         return {"error": "Could not read resume PDF"}
     
+    text_lower = raw_text.lower()
+    
+    # Fast heuristic check for obvious resumes to save API calls
+    score = 0
+    if len(text_lower.strip()) > 50:
+        if bool(re.search(r"@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", text_lower)): score += 2
+        if bool(re.search(r"\+?\d[\d\s().-]{8,}\d", text_lower)): score += 1
+        if any(w in text_lower for w in ["education", "university", "college", "bachelor", "degree"]): score += 2
+        if any(w in text_lower for w in ["experience", "employment", "work history", "professional timeline"]): score += 2
+        if any(w in text_lower for w in ["skills", "technologies", "expertise"]): score += 1
+        if "projects" in text_lower or "certifications" in text_lower: score += 1
+
+    is_resume = False
+    
+    # Strongly looks like a resume
+    if score >= 6:
+        is_resume = True
+    # Grey area or definitely not a resume: ask Gemini to be absolutely certain
+    elif score >= 1 or len(text_lower.strip()) > 20: 
+        is_resume = gemini_validate_resume(raw_text)
+
+    if not is_resume:
+        return {"error": "The uploaded file does not appear to be a valid Resume / CV. Please upload a real resume PDF."}
+
     normalized_text = normalize_text(raw_text)
     personal_details = extract_personal_details(raw_text)
 

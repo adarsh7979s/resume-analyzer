@@ -1,73 +1,219 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@200;400;600;700;800&display=swap");
 
+/* ─────────────────────────────────────────────
+   CAREER COPILOT — Deep Navy + Teal Design System
+   Inspired by: professional SaaS / resume tools
+───────────────────────────────────────────── */
 :root {
-  --bg-1: #f4f8ff;
-  --bg-2: #eef7f4;
-  --surface: #ffffff;
-  --surface-soft: #f7fafc;
-  --text: #0f172a;
-  --muted: #475569;
-  --line: #dbe3ef;
-  --primary: #0f766e;
-  --primary-2: #0ea5a5;
-  --accent: #f97316;
-  --success: #16a34a;
-  --danger: #dc2626;
+  /* Core palette */
+  --bg:          #060d1f;   /* Deep space navy */
+  --bg-2:        #0a1628;   /* Card surface */
+  --bg-3:        #0e1d35;   /* Elevated */
+  --bg-card:     rgba(255, 255, 255, 0.03);
+  --bg-card-h:   rgba(255, 255, 255, 0.055);
+  --bg-glass:    rgba(6, 13, 31, 0.75);
+
+  /* Accent — Teal (trust, growth) */
+  --accent:      #14b8a6;
+  --accent-2:    #0d9488;
+  --accent-dim:  rgba(20, 184, 166, 0.12);
+  --accent-glow: rgba(20, 184, 166, 0.35);
+
+  /* Secondary accent — Indigo (tech, intelligence) */
+  --indigo:      #6366f1;
+  --indigo-dim:  rgba(99, 102, 241, 0.12);
+
+  /* Borders */
+  --border:      rgba(255, 255, 255, 0.07);
+  --border-h:    rgba(255, 255, 255, 0.14);
+  --border-teal: rgba(20, 184, 166, 0.3);
+
+  /* Text */
+  --txt:         #f0f6ff;
+  --txt-2:       rgba(220, 235, 255, 0.65);
+  --txt-3:       rgba(180, 210, 240, 0.4);
+  --txt-4:       rgba(150, 185, 220, 0.22);
+
+  /* Semantic */
+  --success:     #4ade80;
+  --success-dim: rgba(74, 222, 128, 0.1);
+  --warning:     #fbbf24;
+  --danger:      #f87171;
+  --danger-dim:  rgba(248, 113, 113, 0.1);
+  --info:        #60a5fa;
+
+  /* Typography */
+  --font:        'Inter', -apple-system, sans-serif;
+  --font-head:   'Manrope', -apple-system, sans-serif;
+
+  /* Radius */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-2xl:  28px;
+  --r-full: 9999px;
+
+  /* Easing */
+  --ease:   cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-s: cubic-bezier(0.4, 0, 0.2, 1);
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
-}
-
-html {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
-body {
-  margin: 0;
-  font-family: "Manrope", "Segoe UI", sans-serif;
-  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, rgba(14, 165, 165, 0.2), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(249, 115, 22, 0.12), transparent 55%),
-    linear-gradient(180deg, var(--bg-1), var(--bg-2));
 }
 
-/* Normalize form-control rendering across Chromium variants */
-button,
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-  letter-spacing: inherit;
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { min-height: 100%; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--txt);
+  overflow-x: hidden;
+}
+button, input, textarea, select {
+  font: inherit; color: inherit;
+  -webkit-appearance: none; appearance: none;
+  background: none; border: none; cursor: pointer;
+}
+input[type="file"] { -webkit-appearance: none; appearance: none; }
+
+/* ── Selection ── */
+::selection { background: var(--accent); color: #000; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(20,184,166,0.2); border-radius: var(--r-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Gradient text ── */
+.gradient-text {
+  background: linear-gradient(160deg, #ffffff 0%, rgba(200, 230, 255, 0.6) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.teal-text { color: var(--accent); }
+
+/* ── Keyframes ── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ping {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes animStar {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-2000px); }
+}
+@property --ga { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes border-spin { from { --ga: 0deg; } to { --ga: 360deg; } }
+@keyframes pulse-teal {
+  0%, 100% { box-shadow: 0 0 16px var(--accent-glow); }
+  50%       { box-shadow: 0 0 40px rgba(20,184,166,0.5); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+@keyframes glow-sweep {
+  0%   { opacity: 0.04; transform: scale(1);   }
+  50%  { opacity: 0.09; transform: scale(1.05); }
+  100% { opacity: 0.04; transform: scale(1);   }
 }
 
-button,
-input,
-textarea,
-select {
-  -webkit-appearance: none;
-  appearance: none;
+/* ── Buttons ── */
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #000;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.9rem;
+  overflow: hidden;
+  transition: background 0.25s, transform 0.2s, box-shadow 0.3s;
+  box-shadow: 0 4px 24px rgba(20, 184, 166, 0.3);
 }
+.btn-primary:hover { background: var(--accent-2); transform: translateY(-2px); box-shadow: 0 8px 36px rgba(20, 184, 166, 0.45); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.4; pointer-events: none; }
 
-input[type="file"] {
-  -webkit-appearance: none;
-  appearance: none;
+/* Spin-border hero button */
+.btn-shiny {
+  --ga: 0deg;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 44px;
+  border-radius: var(--r-full);
+  background: linear-gradient(var(--bg), var(--bg)) padding-box,
+    conic-gradient(from var(--ga), transparent 0%, var(--accent) 8%, var(--accent) 28%, transparent 40%) border-box;
+  border: 2px solid transparent;
+  color: var(--txt);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1rem;
+  animation: border-spin 3s linear infinite;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.3s;
 }
+.btn-shiny:hover { transform: scale(1.03); box-shadow: 0 8px 32px rgba(20, 184, 166, 0.3); }
+.btn-shiny:active { transform: scale(0.97); }
+
+/* Ghost button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--r-full);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--txt-2);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.25s var(--ease);
+  cursor: pointer;
+}
+.btn-ghost:hover { background: var(--bg-card-h); border-color: var(--border-h); color: var(--txt); }
+
+/* ── Status ── */
+.status-info  { padding: 12px 16px; border-radius: var(--r-md); font-size: 0.85rem; color: var(--txt-2); background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
+.status-error { padding: 12px 16px; border-radius: var(--r-md); font-size: 0.85rem; color: var(--danger); background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.2); }
+
+/* ── Input ── */
+.noir-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  font-size: 1rem;
+  color: var(--txt);
+  transition: border-color 0.3s, box-shadow 0.3s;
+  outline: none;
+}
+.noir-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.noir-input::placeholder { color: var(--txt-3); }
+
+/* ── Card base ── */
+.base-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  transition: border-color 0.3s var(--ease), background 0.3s;
+}
+.base-card:hover { border-color: var(--border-teal); background: var(--bg-card-h); }

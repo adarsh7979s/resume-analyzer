@@ -1,343 +1,174 @@
-import { useEffect, useMemo, useState } from "react";
-import "./RobotCompanion.css";
+import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import './RobotCompanion.css';
 
-const RANDOM_MOODS = ["wave", "nod", "blink", "bounce", "tilt"];
+const RANDOM_MOODS = ['wave', 'nod', 'blink', 'bounce', 'tilt'];
 
-function getGuide(
-  resumeUploaded,
-  roleAnalyzed,
-  hasScore,
-  isLoading,
-  score,
-  isCelebrating,
-  recommendations,
-  candidateName
-) {
-  const greetingName = candidateName?.trim() || "";
-  const hello = greetingName ? `Hi ${greetingName}` : "Hi there";
+function getGuide(resumeUploaded, roleAnalyzed, hasScore, isLoading, score, isCelebrating, recommendations, candidateName) {
+  const name = candidateName?.trim() || '';
+  const hi = name ? `Hi ${name}` : 'Hey there';
 
-  if (isCelebrating) {
-    return {
-      title: "Party Mode",
-      tips: [
-        `${hello}, score ${score}%! Outstanding match.`,
-        "I am doing a happy dance across the screen.",
-        "Keep this momentum and start applying now.",
-      ],
-    };
-  }
-
-  if (isLoading) {
-    return {
-      title: "Analyzing",
-      tips: [
-        `${hello}, I am parsing your resume and evaluating role fit.`,
-        "Give me a few seconds and I will return your score.",
-      ],
-    };
-  }
-
-  if (!resumeUploaded) {
-    return {
-      title: "Start Here",
-      tips: [
-        `${hello}, upload your resume PDF to begin.`,
-        "Use a clean single-column layout for better extraction.",
-        "After upload, enter your target role in Step 2.",
-      ],
-    };
-  }
-
-  if (!roleAnalyzed) {
-    return {
-      title: "Next Step",
-      tips: [
-        `${hello}, great upload.`,
-        "Enter a role like Backend Engineer or AI Engineer.",
-        "Click Analyze Role to load required skills.",
-        "I will compare those skills against your resume.",
-      ],
-    };
-  }
-
-  if (!hasScore) {
-    return {
-      title: "Almost Done",
-      tips: [
-        `${hello}, run Step 3 to generate your final fit score.`,
-        "I will calculate your strongest matches and critical gaps.",
-        "Then focus first on priority gaps.",
-      ],
-    };
-  }
-
+  if (isCelebrating) return {
+    title: 'Excellent!',
+    tips: [`${hi} — ${score}% match! Outstanding result.`, 'Great momentum to start applying now.', 'Review your matched strengths and leverage them.'],
+  };
+  if (isLoading) return {
+    title: 'Analyzing',
+    tips: [`${hi}, parsing your resume now.`, 'Give me a moment to evaluate your role fit.'],
+  };
+  if (!resumeUploaded) return {
+    title: 'Start Here',
+    tips: [`${hi}, upload your resume PDF to begin.`, 'Use a clean, single-column layout for best extraction.', 'After upload, set your target role in Step 2.'],
+  };
+  if (!roleAnalyzed) return {
+    title: 'Set Target',
+    tips: [`${hi} — great upload!`, 'Enter a role like "Backend Engineer" or "Data Scientist".', 'I will benchmark your skills against real job requirements.'],
+  };
+  if (!hasScore) return {
+    title: 'Almost Done',
+    tips: [`${hi}, click Analyze to generate your fit score.`, 'I will surface your top strengths and critical gaps.', 'Then we build your action plan together.'],
+  };
   if (recommendations) {
-    const dynamicTips = [];
-    if (recommendations.summary) {
-      dynamicTips.push(recommendations.summary);
-    }
-    if (Array.isArray(recommendations.focus_areas)) {
-      dynamicTips.push(...recommendations.focus_areas.slice(0, 2));
-    }
-    if (Array.isArray(recommendations.action_plan)) {
-      dynamicTips.push(...recommendations.action_plan.slice(0, 1));
-    }
+    const tips = [];
+    if (recommendations.summary) tips.push(recommendations.summary);
+    if (Array.isArray(recommendations.focus_areas)) tips.push(...recommendations.focus_areas.slice(0, 2));
+    if (Array.isArray(recommendations.action_plan)) tips.push(...recommendations.action_plan.slice(0, 1));
     if (Array.isArray(recommendations.courses) && recommendations.courses.length > 0) {
       const c = recommendations.courses[0];
-      dynamicTips.push(`Start with course: ${c.title} on ${c.platform}.`);
+      tips.push(`Start with: "${c.title}" on ${c.platform}.`);
     }
-
-    return {
-      title: "Personal Guidance",
-      tips: dynamicTips.length
-        ? dynamicTips
-        : ["Follow your recommendation panel and close the highest-priority gap first."],
-    };
+    return { title: 'Personal Guide', tips: tips.length ? tips : ['Focus on closing your highest-priority skill gap first.'] };
   }
-
-  return {
-    title: "Great Progress",
-    tips: [
-      "Focus on missing skills and build targeted projects.",
-      "Re-upload your updated resume and compare improvements.",
-      "Aim for 80%+ before applying aggressively.",
-    ],
-  };
+  return { title: 'Great Progress', tips: ['Build projects targeting missing skills.', 'Re-upload an updated resume to track improvement.', 'Aim for 80%+ before applying aggressively.'] };
 }
 
-function RobotCompanion({
-  resumeUploaded,
-  roleAnalyzed,
-  hasScore,
-  score,
-  celebrationTick,
-  recommendations,
-  candidateName,
-  isLoading,
-  onQuickAction,
-}) {
-  const [mood, setMood] = useState("idle");
+export default function RobotCompanion({ resumeUploaded, roleAnalyzed, hasScore, score, celebrationTick, recommendations, candidateName, isLoading, onQuickAction }) {
+  const [mood, setMood]         = useState('idle');
   const [tipIndex, setTipIndex] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   const [isCelebrating, setIsCelebrating] = useState(false);
-  const [position, setPosition] = useState(() => {
-    try {
-      const saved = window.localStorage.getItem("robot_position");
-      if (!saved) {
-        return { x: null, y: null };
-      }
-      const parsed = JSON.parse(saved);
-      if (typeof parsed?.x === "number" && typeof parsed?.y === "number") {
-        return { x: parsed.x, y: parsed.y };
-      }
-    } catch {
-      // Ignore storage errors and fall back to default CSS position.
-    }
-    return { x: null, y: null };
-  });
 
   const guide = useMemo(
-    () =>
-      getGuide(
-        resumeUploaded,
-        roleAnalyzed,
-        hasScore,
-        isLoading,
-        score,
-        isCelebrating,
-        recommendations,
-        candidateName
-      ),
+    () => getGuide(resumeUploaded, roleAnalyzed, hasScore, isLoading, score, isCelebrating, recommendations, candidateName),
     [resumeUploaded, roleAnalyzed, hasScore, isLoading, score, isCelebrating, recommendations, candidateName]
   );
 
+  // Mood animation loop
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
+    const id = setInterval(() => {
       const next = RANDOM_MOODS[Math.floor(Math.random() * RANDOM_MOODS.length)];
       setMood(next);
-
-      window.setTimeout(() => {
-        setMood("idle");
-      }, 900);
-    }, 2300 + Math.floor(Math.random() * 2000));
-
-    return () => window.clearInterval(intervalId);
+      setTimeout(() => setMood('idle'), 1200);
+    }, 4500);
+    return () => clearInterval(id);
   }, []);
 
+  // Tip rotation
   useEffect(() => {
-    const tipInterval = window.setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % guide.tips.length);
-    }, 4600);
+    const id = setInterval(() => setTipIndex(p => (p + 1) % (guide.tips?.length || 1)), 6000);
+    return () => clearInterval(id);
+  }, [guide.tips?.length]);
 
-    return () => window.clearInterval(tipInterval);
-  }, [guide.tips.length]);
-
+  // Celebration
   useEffect(() => {
-    if (position.x === null || position.y === null) {
-      return;
-    }
-    window.localStorage.setItem("robot_position", JSON.stringify(position));
-  }, [position]);
-
-  useEffect(() => {
-    if (typeof score !== "number" || score < 80) {
-      return;
-    }
-
-    const startTimer = window.setTimeout(() => {
-      setIsCelebrating(true);
-      setMood("bounce");
-      setCollapsed(false);
-    }, 0);
-    const stopTimer = window.setTimeout(() => {
-      setIsCelebrating(false);
-      setMood("idle");
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(startTimer);
-      window.clearTimeout(stopTimer);
-    };
+    if (typeof score !== 'number' || score < 80) return;
+    setIsCelebrating(true);
+    const t = setTimeout(() => setIsCelebrating(false), 8000);
+    return () => clearTimeout(t);
   }, [score, celebrationTick]);
 
-  function handleDragStart(event) {
-    if (event.button !== undefined && event.button !== 0) {
-      return;
-    }
+  const currentTip = guide.tips?.[tipIndex % guide.tips.length] ?? 'Ready to help you land your next role.';
+  const tipCount   = guide.tips?.length ?? 1;
 
-    const node = event.currentTarget.closest(".robot-companion");
-    if (!node) {
-      return;
-    }
+  const actionLabel = !resumeUploaded ? 'UPLOAD' : !roleAnalyzed ? 'SET ROLE' : !hasScore ? 'ANALYZE' : 'INSIGHTS';
 
-    event.preventDefault();
-    const rect = node.getBoundingClientRect();
-    const offsetX = event.clientX - rect.left;
-    const offsetY = event.clientY - rect.top;
-
-    function onMove(moveEvent) {
-      const maxX = Math.max(window.innerWidth - rect.width, 0);
-      const maxY = Math.max(window.innerHeight - rect.height, 0);
-      const nextX = Math.min(Math.max(moveEvent.clientX - offsetX, 0), maxX);
-      const nextY = Math.min(Math.max(moveEvent.clientY - offsetY, 0), maxY);
-      setPosition({ x: nextX, y: nextY });
-    }
-
-    function onEnd() {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onEnd);
-    }
-
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onEnd);
-  }
-
-  const currentTip = guide.tips[tipIndex % guide.tips.length] || guide.tips[0];
-  const quickActionLabel = !resumeUploaded
-    ? "Go To Step 1"
-    : !roleAnalyzed
-      ? "Next: Analyze Role"
-      : !hasScore
-        ? "Run Skill Gap"
-        : "Open Recommendations";
-  const faceClass = isCelebrating
-    ? "face-happy"
-    : isLoading
-      ? "face-thinking"
-      : mood === "blink"
-        ? "face-blink"
-        : "face-neutral";
+  const faceClass = isCelebrating ? 'face-happy'
+    : isLoading ? 'face-thinking'
+    : mood === 'blink' ? 'face-blink'
+    : 'face-neutral';
 
   return (
-    <aside
-      className={`robot-companion robot-${mood} ${isLoading ? "robot-thinking" : ""} ${
-        isCelebrating ? "robot-celebrate" : ""
-      } ${collapsed ? "robot-collapsed" : ""}`}
-      style={
-        !isCelebrating && position.x !== null && position.y !== null
-          ? {
-              left: `${position.x}px`,
-              top: `${position.y}px`,
-              right: "auto",
-              bottom: "auto",
-            }
-          : undefined
-      }
+    <motion.aside
+      className={`robot-companion robot-${mood} ${isCelebrating ? 'robot-celebrate' : ''}`}
+      drag
+      dragMomentum={false}
+      dragConstraints={{ left: -window.innerWidth + 280, right: 0, top: -window.innerHeight + 200, bottom: 0 }}
+      initial={{ opacity: 0, scale: 0.85, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.85, y: 20 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
     >
-      <div className="robot-shell" aria-hidden="true">
-        <div className="robot-glow" />
+      {/* Avatar */}
+      <div className="robot-shell">
         <div className="robot-ant" />
         <div className={`robot-head ${faceClass}`}>
-          <span className="robot-brow robot-brow-left" />
-          <span className="robot-brow robot-brow-right" />
-
-          <div className="robot-eye robot-eye-left">
-            <span className="robot-pupil" />
-          </div>
-          <div className="robot-eye robot-eye-right">
-            <span className="robot-pupil" />
-          </div>
-
-          <span className="robot-cheek robot-cheek-left" />
-          <span className="robot-cheek robot-cheek-right" />
-          <span className="robot-mouth" />
-          <span className="robot-spark robot-spark-left">*</span>
-          <span className="robot-spark robot-spark-right">*</span>
+          <div className="robot-eye"><span className="robot-pupil" /></div>
+          <div className="robot-eye"><span className="robot-pupil" /></div>
         </div>
-
-        <div className="robot-torso">
-          <span className="robot-core" />
-        </div>
-        <span className="robot-arm robot-arm-left" />
-        <span className="robot-arm robot-arm-right" />
       </div>
 
-      <div className="robot-bubble" role="status" aria-live="polite">
+      {/* Bubble */}
+      <motion.div
+        className="robot-bubble"
+        animate={{ scaleX: collapsed ? 0.92 : 1, scaleY: collapsed ? 0.1 : 1, opacity: collapsed ? 0 : 1 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        style={{ pointerEvents: collapsed ? 'none' : 'auto' }}
+      >
         <div className="robot-bubble-top">
-          <button
-            type="button"
-            className="robot-drag-handle"
-            onPointerDown={handleDragStart}
-            aria-label="Drag assistant"
-            title="Drag assistant"
-          >
-            {isCelebrating ? "Party Mode" : guide.title}
-          </button>
-          <button
-            type="button"
-            className="robot-icon-btn"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? "Expand assistant" : "Minimize assistant"}
-          >
-            {collapsed ? "+" : "-"}
+          <span className="robot-drag-handle">
+            {isCelebrating ? 'CELEBRATION' : guide.title.toUpperCase()}
+          </span>
+          <button type="button" className="robot-icon-btn" onClick={() => setCollapsed(c => !c)}>
+            −
           </button>
         </div>
 
-        {!collapsed && (
-          <>
-            <p className="robot-tip">{currentTip}</p>
-            <div className="robot-actions">
-              <button
-                type="button"
-                className="robot-action-btn robot-action-main"
-                onClick={onQuickAction}
-                disabled={isLoading}
-              >
-                {quickActionLabel}
-              </button>
-              <button
-                type="button"
-                className="robot-action-btn"
-                onClick={() => setTipIndex((prev) => (prev + 1) % guide.tips.length)}
-              >
-                Next Tip
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </aside>
+        <div className="robot-bubble-content">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={currentTip}
+              className="robot-tip"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3 }}
+            >
+              {currentTip}
+            </motion.p>
+          </AnimatePresence>
+
+          <div className="robot-actions">
+            <button
+              type="button"
+              className="robot-action-btn robot-action-main"
+              onClick={onQuickAction}
+            >
+              {actionLabel}
+            </button>
+            <button
+              type="button"
+              className="robot-action-btn"
+              onClick={() => setTipIndex(p => (p + 1) % tipCount)}
+            >
+              SKIP
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Collapsed toggle */}
+      {collapsed && (
+        <motion.button
+          type="button"
+          className="robot-icon-btn"
+          style={{ marginTop: 4, width: 28, height: 28, fontSize: '0.8rem' }}
+          onClick={() => setCollapsed(false)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          +
+        </motion.button>
+      )}
+    </motion.aside>
   );
 }
-
-export default RobotCompanion;

@@ -1,20 +1,4 @@
 {
-  "devops engineer": {
-    "skills": [
-      "cloud platforms aws azure gcp",
-      "kubernetes",
-      "docker",
-      "ci cd pipeline automation e g jenkins gitlab ci github actions",
-      "python scripting",
-      "git",
-      "linux system administration"
-    ],
-    "schema_version": 1,
-    "model_version": "gemini-2.5-flash",
-    "created_at": 1771506278,
-    "updated_at": 1771506278,
-    "expires_at": 1774098278
-  },
   "database manager": [
     "sql",
     "database administration (dba)",

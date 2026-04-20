@@ -1,135 +1,92 @@
-﻿import "./SkillGap.css";
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import './SkillGap.css';
+
+const listVariants = {
+  hidden:  { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+};
+const itemVariants = {
+  hidden:  { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } },
+};
 
 function SkillGap({ score, matched, missing }) {
-  let verdict = "";
-  let color = "";
-  const isCelebration = score >= 80;
+  let verdict, color;
+  if      (score >= 80) { verdict = 'Elite Calibration'; color = 'var(--success)'; }
+  else if (score >= 60) { verdict = 'Strong Alignment';  color = 'var(--accent)'; }
+  else if (score >= 40) { verdict = 'Moderate Offset';   color = 'var(--warning)'; }
+  else                  { verdict = 'Critical Gap';      color = 'var(--danger)'; }
 
-  if (score >= 80) {
-    verdict = "Strong Match";
-    color = "#16a34a";
-  } else if (score >= 60) {
-    verdict = "Good Match";
-    color = "#0f766e";
-  } else if (score >= 40) {
-    verdict = "Moderate Match";
-    color = "#f59e0b";
-  } else {
-    verdict = "Needs Improvement";
-    color = "#dc2626";
-  }
-
-  const totalTracked = matched.length + missing.length;
-  const coverage = totalTracked
-    ? Math.round((matched.length / totalTracked) * 100)
-    : 0;
-  const topMissing = missing.slice(0, 3);
+  const [displayScore, setDisplayScore] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    function tick(now) {
+      const p = Math.min((now - t0) / 1000, 1);
+      setDisplayScore(Math.round(p * score));
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }, [score]);
 
   return (
-    <div className={`skillgap ${isCelebration ? "celebration-mode" : ""}`}>
-      {isCelebration && (
-        <div className="confetti-field" aria-hidden="true">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <span
-              key={i}
-              className="confetti-piece"
-              style={{
-                left: `${(i * 5.5) % 100}%`,
-                animationDelay: `${(i % 6) * 0.12}s`,
-              }}
-            />
-          ))}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h3 style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '1.1rem', marginBottom: 4 }}>
+            Capability Benchmark
+          </h3>
+          <p style={{ fontSize: '0.78rem', color: 'var(--txt-3)' }}>Neural mapping results against global standards</p>
         </div>
-      )}
-
-      <div className="skillgap-head">
-        <h3>Skill Gap Analysis</h3>
-        <p>Fit score for your selected role</p>
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '0.95rem', color }}>{verdict}</span>
+          <p style={{ fontSize: '0.6rem', color: 'var(--txt-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>Verdict</p>
+        </div>
       </div>
 
-      <div className="meter-wrap">
-        <div className="meter-track">
-          <div className="meter-fill" style={{ width: `${score}%` }} />
-          <div className="meter-marker" style={{ left: `calc(${score}% - 10px)` }}>
-            {score}%
+      {/* Gauge */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+        <div className="sg-circle-wrap">
+          <div className="sg-circle" style={{ background: `conic-gradient(${color} ${displayScore * 3.6}deg, rgba(255,255,255,0.05) 0deg)` }} />
+          <div className="sg-circle-inner">
+            <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              {displayScore}<small>%</small>
+            </motion.span>
+            <p>MATCH INDEX</p>
           </div>
         </div>
       </div>
 
-      <div className="score-box centered-score">
-        <div
-          className="score-circle"
-          style={{
-            background: `conic-gradient(
-              ${color} ${score * 3.6}deg,
-              rgba(203, 213, 225, 0.35) 0deg
-            )`,
-          }}
-        >
-          <span>{score}%</span>
-        </div>
+      {/* Skill lists */}
+      <div className="sg-lists">
+        <motion.div className="sg-list-card sg-list-success" variants={listVariants} initial="hidden" animate="visible">
+          <h4>Identified Strengths</h4>
+          {matched.length === 0
+            ? <p className="sg-empty">No direct matches detected yet.</p>
+            : <ul>{matched.map((m, i) => (
+                <motion.li key={i} variants={itemVariants}>
+                  <span>{m.job_skill}</span>
+                  <span className="sg-tag sg-tag-match">MATCH</span>
+                </motion.li>
+              ))}</ul>
+          }
+        </motion.div>
 
-        <h2 style={{ color }}>{verdict}</h2>
-        <p className="subtext">AI Match Score</p>
-        {isCelebration && <p className="party-note">Party Popper Mode: Excellent Fit</p>}
+        <motion.div className="sg-list-card sg-list-danger" variants={listVariants} initial="hidden" animate="visible">
+          <h4>Critical Targets</h4>
+          {missing.length === 0
+            ? <p className="sg-empty">Zero deficiencies detected.</p>
+            : <ul>{missing.map((s, i) => (
+                <motion.li key={i} variants={itemVariants}>
+                  <span>{s}</span>
+                  <span className="sg-tag sg-tag-gap">UPSKILL</span>
+                </motion.li>
+              ))}</ul>
+          }
+        </motion.div>
       </div>
-
-      <div className="summary-grid">
-        <article className="summary-card">
-          <p className="summary-label">Coverage</p>
-          <strong>{coverage}%</strong>
-        </article>
-        <article className="summary-card">
-          <p className="summary-label">Matched</p>
-          <strong>{matched.length}</strong>
-        </article>
-        <article className="summary-card">
-          <p className="summary-label">Missing</p>
-          <strong>{missing.length}</strong>
-        </article>
-      </div>
-
-      {topMissing.length > 0 && (
-        <div className="priority-gaps">
-          <h4>Priority Gaps</h4>
-          <div className="priority-list">
-            {topMissing.map((skill, i) => (
-              <span key={`${skill}-${i}`}>{skill}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="gap-sections">
-        <div className="gap-card success">
-          <h4>Matched Skills</h4>
-          {matched.length === 0 ? (
-            <p className="empty">No strong matches found.</p>
-          ) : (
-            <ul>
-              {matched.map((m, i) => (
-                <li key={i}>
-                  {m.job_skill} ({Math.round(m.similarity * 100)}%)
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="gap-card danger">
-          <h4>Missing Skills</h4>
-          {missing.length === 0 ? (
-            <p className="empty">No critical gaps.</p>
-          ) : (
-            <ul>
-              {missing.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
