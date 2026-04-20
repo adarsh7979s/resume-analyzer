@@ -1,15 +1,17 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Layout, BookOpen, FileEdit, TrendingUp, Zap, ArrowRight } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import confetti from 'canvas-confetti';
 import './App.css';
 import { useAnalyzer } from './hooks/useAnalyzer';
 import LandingPage from './components/LandingPage';
-import RobotCompanion from './components/RobotCompanion';
-import UploadView from './pages/UploadView';
-import AnalyzingView from './pages/AnalyzingView';
-import ResultsView from './pages/ResultsView';
+import DashboardLayout from './components/DashboardLayout';
+import DashboardView from './pages/DashboardView';
+import InsightsView from './pages/InsightsView';
+import HistoryView from './pages/HistoryView';
+import AiChatbot from './components/AiChatbot';
+import '../src/pages/InsightsView.css';
+import '../src/pages/HistoryView.css';
 
 /* ── Confetti burst on score ── */
 function useConfetti(score) {
@@ -37,15 +39,75 @@ function useConfetti(score) {
   }, [score]);
 }
 
+/* ── Settings placeholder ── */
+function SettingsPage() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', gap: 16, padding: '80px 24px',
+      textAlign: 'center',
+    }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: 16,
+        background: 'rgba(20,184,166,0.08)',
+        border: '1px solid rgba(20,184,166,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--accent)', fontSize: '1.5rem',
+      }}>
+        ⚙️
+      </div>
+      <h2 style={{
+        fontFamily: 'var(--font-head)', fontWeight: 800,
+        fontSize: '1.5rem', color: 'var(--txt)',
+      }}>
+        Settings
+      </h2>
+      <p style={{
+        fontSize: '0.95rem', color: 'var(--txt-3)',
+        maxWidth: 400, lineHeight: 1.6,
+      }}>
+        Configure your analysis preferences, notification settings, and integrations.
+      </p>
+      <span style={{
+        padding: '6px 16px', background: 'var(--accent-dim)',
+        border: '1px solid var(--border-teal)', borderRadius: 'var(--r-full)',
+        fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)',
+        letterSpacing: '0.06em',
+      }}>
+        COMING SOON
+      </span>
+    </div>
+  );
+}
+
 function App() {
   const state = useAnalyzer();
-  const { view, setView, isAnalysisMode, isLoading } = state;
+  const { view, setView, activeTab, setActiveTab } = state;
 
   // Fire confetti when results come in with a good score
-  useConfetti(view === 'results' ? state.score : null);
+  useConfetti(view === 'results' || state.score !== null ? state.score : null);
+
+  /* ── Determine what the sidebar active tab renders ── */
+  function renderTabContent() {
+    switch (activeTab) {
+      case 'dashboard':
+        return <DashboardView state={state} />;
+      case 'analyzer':
+        // Analyzer tab redirects to dashboard with focus
+        return <DashboardView state={state} />;
+      case 'insights':
+        return <InsightsView state={state} />;
+      case 'history':
+        return <HistoryView state={state} />;
+      case 'settings':
+        return <SettingsPage />;
+      default:
+        return <DashboardView state={state} />;
+    }
+  }
 
   return (
-    <div className="page">
+    <>
       {/* Toast system */}
       <Toaster
         position="top-right"
@@ -63,201 +125,33 @@ function App() {
         }}
       />
 
-      {/* Starfield */}
-      <div className="star-layer stars-1" />
-      <div className="star-layer stars-2" />
-      {/* Ambient glow orbs */}
-      <div className="bg-glow-1" />
-      <div className="bg-glow-2" />
-      {/* Dot grid */}
-      <div className="bg-grid" />
-
-      {/* AI Companion */}
-      <AnimatePresence>
-        {(view === 'input' || view === 'results') && (
-          <RobotCompanion
-            resumeUploaded={state.resumeUploaded}
-            roleAnalyzed={state.roleAnalyzed}
-            hasScore={state.score !== null}
-            score={state.score}
-            celebrationTick={state.celebrationTick}
-            recommendations={state.recommendations}
-            candidateName={state.candidateName}
-            isLoading={isLoading}
-            onQuickAction={state.handleRobotAction}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Page Router */}
       <AnimatePresence mode="wait">
-        {view === 'landing' && (
-          <LandingPage key="landing" onStart={() => setView('input')} />
-        )}
-        {view === 'input' && (
-          <UploadView key="upload" state={state} />
-        )}
-        {view === 'analyzing' && (
-          <AnalyzingView key="analyzing" state={state} />
-        )}
-        {view === 'results' && (
-          <div key="results" className="results-shell">
-            <ResultsView state={state} />
-            <AiPanel state={state} />
+        {view === 'landing' ? (
+          <div className="page" key="landing">
+            {/* Starfield */}
+            <div className="star-layer stars-1" />
+            <div className="star-layer stars-2" />
+            <div className="bg-glow-1" />
+            <div className="bg-glow-2" />
+            <div className="bg-grid" />
+
+            <LandingPage onStart={() => setView('input')} />
           </div>
+        ) : (
+          <DashboardLayout
+            key="dashboard"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            candidateName={state.candidateName}
+          >
+            {renderTabContent()}
+          </DashboardLayout>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
 
-/* ──────────────────────────────
-   AI Insights Side Panel
-────────────────────────────── */
-function AiPanel({ state }) {
-  const { score, atsScore, insightTab, setInsightTab, recommendations } = state;
-
-  const tabList = [
-    { id: 'strategy', label: 'Strategy', icon: <Layout size={13} /> },
-    { id: 'courses',  label: 'Academy',  icon: <BookOpen size={13} /> },
-    { id: 'resume',   label: 'Resume',   icon: <FileEdit size={13} /> },
-  ];
-
-  // Determine score color using teal-based palette
-  const scoreColor = score >= 80 ? 'var(--success)' : score >= 50 ? 'var(--accent)' : 'var(--danger)';
-
-  return (
-    <aside className="ai-panel">
-      {/* Header */}
-      <div className="ai-panel-head">
-        <div className="kicker">
-          <span className="kicker-dot" />
-          AI Insights
-        </div>
-        <h2>Strategic Audit</h2>
-        <p>Foundational analysis of your career trajectory.</p>
-      </div>
-
-      {/* Readiness */}
-      <div className="readiness-row">
-        <div className="readiness-cell">
-          <span className="readiness-label">Market Readiness</span>
-          <strong className="readiness-val" style={{ color: scoreColor }}>
-            {score === null ? '—' : `${score}%`}
-          </strong>
-        </div>
-        <div className="readiness-cell">
-          <span className="readiness-label">ATS Optimization</span>
-          <strong className="readiness-val">
-            {atsScore === null ? '—' : `${atsScore}%`}
-          </strong>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="insight-tabs">
-        {tabList.map(t => (
-          <button
-            key={t.id}
-            className={`insight-tab${insightTab === t.id ? ' active' : ''}`}
-            onClick={() => setInsightTab(t.id)}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Body */}
-      <div className="ai-panel-body">
-        <AnimatePresence mode="wait">
-          {insightTab === 'strategy' && (
-            <motion.div
-              key="strategy"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <div className="panel-section">
-                <p className="panel-section-label"><TrendingUp size={11} /> Focus Architecture</p>
-                <div className="focus-list">
-                  {(recommendations?.focus_areas || ['Mapping target areas…']).map((item, i) => (
-                    <div key={i} className="focus-card">
-                      <span className="focus-idx">{i + 1}</span>
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="panel-section">
-                <p className="panel-section-label"><Zap size={11} /> Action Plan</p>
-                <ul className="action-list">
-                  {(recommendations?.action_plan || []).map((item, i) => (
-                    <li key={i}>
-                      <span className="action-dot" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </motion.div>
-          )}
-
-          {insightTab === 'courses' && (
-            <motion.div
-              key="courses"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <div className="panel-section">
-                <p className="panel-section-label"><BookOpen size={11} /> Curated Academy</p>
-                <div className="course-list">
-                  {(recommendations?.courses || []).map((c, i) => (
-                    <div key={i} className="course-card">
-                      <div className="course-card-head">
-                        <span className="course-platform">{c.platform}</span>
-                        <span className="course-level">{c.level}</span>
-                      </div>
-                      <p className="course-title">{c.title}</p>
-                      <span className="course-skill">Target: {c.for_skill}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {insightTab === 'resume' && (
-            <motion.div
-              key="resume"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.25 }}
-            >
-              <div className="panel-section">
-                <p className="panel-section-label"><FileEdit size={11} /> Resume Improvements</p>
-                <div className="resume-list">
-                  {(recommendations?.resume_section_feedback || []).map((item, i) => (
-                    <div key={i} className="resume-card">
-                      <div className="resume-card-head">
-                        <span className="resume-section-name">{item.section}</span>
-                        <span className="resume-tag">UPGRADE</span>
-                      </div>
-                      <p className="resume-why">{item.why}</p>
-                      <div className="resume-upgrade">{item.upgrade}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </aside>
+      {/* AI Chatbot — visible in dashboard */}
+      {view !== 'landing' && <AiChatbot state={state} />}
+    </>
   );
 }
 

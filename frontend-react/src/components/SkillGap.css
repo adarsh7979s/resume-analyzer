@@ -1,52 +1,138 @@
-/* SkillGap.css — Deep Navy + Teal */
+/* ═════════════════════════════════════
+   SkillGap.css — Dashboard Progress Bars
+═════════════════════════════════════ */
 
-/* Circular gauge */
-.sg-circle-wrap {
-  position: relative;
-  width: 150px; height: 150px;
+/* Header */
+.sg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
 }
-.sg-circle {
-  position: absolute; inset: 0;
-  border-radius: 50%;
-  mask: radial-gradient(circle, transparent 54%, black 55%);
-  -webkit-mask: radial-gradient(circle, transparent 54%, black 55%);
-  transition: background 0.8s ease;
+.sg-title {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--txt);
+  margin-bottom: 4px;
 }
-.sg-circle-inner {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+.sg-subtitle {
+  font-size: 0.78rem;
+  color: var(--txt-3);
 }
-.sg-circle-inner span { font-family: 'Manrope', sans-serif; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.06em; line-height: 1; color: var(--txt); }
-.sg-circle-inner small { font-size: 1rem; opacity: 0.45; }
-.sg-circle-inner p { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; color: var(--txt-3); text-transform: uppercase; }
+.sg-verdict {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 0.9rem;
+  text-align: right;
+}
 
 /* Skill lists */
-.sg-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 600px) { .sg-lists { grid-template-columns: 1fr; } }
+.sg-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .sg-lists { grid-template-columns: 1fr; }
+}
 
 .sg-list-card {
-  padding: 18px; border-radius: 14px; border: 1px solid;
+  padding: 20px;
+  border-radius: var(--r-xl);
+  border: 1px solid;
 }
-.sg-list-success { background: rgba(74,222,128,0.03); border-color: rgba(74,222,128,0.14); }
-.sg-list-danger  { background: rgba(20,184,166,0.03); border-color: rgba(20,184,166,0.14); }
+.sg-list-success {
+  background: rgba(74, 222, 128, 0.03);
+  border-color: rgba(74, 222, 128, 0.14);
+}
+.sg-list-danger {
+  background: rgba(20, 184, 166, 0.03);
+  border-color: rgba(20, 184, 166, 0.14);
+}
 
 .sg-list-card h4 {
-  font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em;
-  text-transform: uppercase; margin-bottom: 12px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 .sg-list-success h4 { color: var(--success); }
 .sg-list-danger  h4 { color: var(--accent); }
 
-.sg-list-card ul  { list-style: none; display: flex; flex-direction: column; }
-.sg-list-card li {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-  font-size: 0.95rem; color: var(--txt-2); font-weight: 500;
+.sg-list-sub {
+  font-size: 0.72rem;
+  color: var(--txt-3);
+  display: block;
+  margin-bottom: 14px;
 }
-.sg-list-card li:last-child { border-bottom: none; }
 
-.sg-tag { font-size: 0.75rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.05em; }
-.sg-tag-match { background: rgba(74,222,128,0.15);  color: var(--success); }
-.sg-tag-gap   { background: rgba(20,184,166,0.15);  color: var(--accent); }
+.sg-list-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
-.sg-empty { font-size: 0.95rem; color: var(--txt-3); font-style: italic; padding: 6px 0; }
+.sg-list-card li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Skill row top line */
+.sg-skill-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sg-skill-icon {
+  flex-shrink: 0;
+}
+.sg-icon-match { color: var(--success); }
+.sg-icon-gap   { color: var(--accent); }
+
+.sg-skill-name {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--txt-2);
+}
+.sg-skill-pct {
+  font-family: var(--font-head);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--txt);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Progress bars */
+.sg-bar-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.sg-bar-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+}
+.sg-bar-match {
+  background: linear-gradient(90deg, var(--success), var(--accent));
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+}
+.sg-bar-gap {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.sg-empty {
+  font-size: 0.88rem;
+  color: var(--txt-3);
+  font-style: italic;
+  padding: 6px 0;
+}

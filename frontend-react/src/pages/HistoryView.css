@@ -1,0 +1,87 @@
+/* ═════════════════════════════════════
+   HistoryView.css
+═════════════════════════════════════ */
+.hist-wrap { max-width: 800px; }
+
+.hist-header { margin-bottom: 24px; }
+.hist-title {
+  font-family: var(--font-head);
+  font-size: 1.4rem; font-weight: 800;
+  color: var(--txt); margin-bottom: 4px;
+}
+.hist-subtitle { font-size: 0.88rem; color: var(--txt-3); }
+
+/* Empty state */
+.hist-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; padding: 80px 24px;
+  text-align: center;
+}
+.hist-empty-icon { color: var(--txt-3); opacity: 0.3; }
+.hist-empty h3 {
+  font-family: var(--font-head);
+  font-size: 1.3rem; font-weight: 800;
+  color: var(--txt);
+}
+.hist-empty p {
+  font-size: 0.92rem; color: var(--txt-3);
+  max-width: 360px; line-height: 1.55;
+}
+.hist-start-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 24px;
+  background: var(--accent); color: #000;
+  font-weight: 700; font-size: 0.85rem;
+  border-radius: var(--r-full);
+  border: none; cursor: pointer;
+  transition: all 0.25s;
+}
+.hist-start-btn:hover {
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+/* List */
+.hist-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.hist-entry {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: rgba(10, 22, 40, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  transition: border-color 0.3s;
+}
+.hist-entry:hover { border-color: var(--border-teal); }
+
+.hist-entry-left {
+  display: flex; align-items: center; gap: 16px;
+}
+.hist-entry-score {
+  font-family: var(--font-head);
+  font-size: 1.3rem; font-weight: 900;
+  min-width: 56px;
+}
+.hist-entry-info {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.hist-entry-role {
+  font-weight: 700; font-size: 0.92rem;
+  color: var(--txt);
+}
+.hist-entry-date {
+  font-size: 0.78rem; color: var(--txt-3);
+}
+
+.hist-entry-right { display: flex; align-items: center; gap: 12px; }
+.hist-entry-skills {
+  font-size: 0.78rem; font-weight: 600;
+  color: var(--txt-3);
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+}

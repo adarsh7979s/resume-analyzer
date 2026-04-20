@@ -13,6 +13,7 @@ export function useAnalyzer() {
   const [view, setView] = useState("landing");
   const [isAnalysisMode, setIsAnalysisMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   const [file, setFile] = useState(null);
   const [role, setRole] = useState("");
@@ -44,6 +45,11 @@ export function useAnalyzer() {
     if (saved) {
       setAnalysisId(saved);
     }
+    // Restore history from localStorage
+    try {
+      const h = localStorage.getItem('ra_history');
+      if (h) setHistoryEntries(JSON.parse(h));
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -203,6 +209,23 @@ export function useAnalyzer() {
         await sleep(ANALYSIS_MIN_DURATION_MS - elapsed);
         if (activeAnalysisRunRef.current !== runId) return;
       }
+
+      // Save local history entry
+      setHistoryEntries(prev => {
+        const entry = {
+          id: Date.now(),
+          role: role,
+          score: gapData.match_score,
+          atsScore: gapData.ats_score ?? gapData.match_score,
+          matched: (gapData.semantic_matches || []).length,
+          missing: (gapData.skills_missing || []).length,
+          date: new Date().toISOString(),
+        };
+        const next = [entry, ...prev].slice(0, 20);
+        try { localStorage.setItem('ra_history', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
       setCelebrationTick((prev) => prev + 1);
       setIsAnalysisMode(true);
       setView("results");
@@ -239,6 +262,7 @@ export function useAnalyzer() {
     view, setView,
     isAnalysisMode,
     isLoading,
+    activeTab, setActiveTab,
     file, setFile,
     role, setRole,
     isDragActive, setIsDragActive,

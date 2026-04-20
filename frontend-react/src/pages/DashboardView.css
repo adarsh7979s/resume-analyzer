@@ -1,0 +1,439 @@
+/* ═════════════════════════════════════
+   DashboardView.css — Main Dashboard Grid
+═════════════════════════════════════ */
+
+/* ── Top profile card ── */
+.dv-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: rgba(10, 22, 40, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  margin-bottom: 20px;
+}
+.dv-profile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--indigo));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.dv-profile-info { display: flex; flex-direction: column; gap: 2px; }
+.dv-profile-name {
+  font-family: var(--font-head);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--txt);
+}
+.dv-profile-sub {
+  font-size: 0.82rem;
+  color: var(--txt-3);
+}
+.dv-profile-badge {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-teal);
+  border-radius: var(--r-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+/* ── Main grid ── */
+.dv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 340px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .dv-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 800px) {
+  .dv-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card base ── */
+.dv-card {
+  background: rgba(10, 22, 40, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  padding: 24px;
+  transition: border-color 0.3s, transform 0.3s;
+}
+.dv-card:hover {
+  border-color: var(--border-teal);
+}
+
+/* ── Upload card ── */
+.dv-upload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+}
+.dv-upload-card:hover {
+  background: rgba(10, 22, 40, 0.7);
+}
+.dv-upload-card.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.dv-upload-card.has-file {
+  border-color: var(--success);
+  border-style: solid;
+}
+.dv-upload-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px dashed var(--border);
+  border-radius: var(--r-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--txt-3);
+  transition: all 0.3s;
+}
+.dv-upload-card:hover .dv-upload-icon,
+.dv-upload-card.drag-over .dv-upload-icon {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.dv-upload-card.has-file .dv-upload-icon {
+  color: var(--success);
+  border-color: var(--success);
+  border-style: solid;
+}
+.dv-upload-title {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--txt);
+}
+.dv-upload-sub {
+  font-size: 0.82rem;
+  color: var(--txt-3);
+  text-align: center;
+}
+.dv-upload-filename {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dv-upload-btn {
+  padding: 10px 24px;
+  background: var(--accent);
+  color: #000;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+}
+.dv-upload-btn:hover {
+  background: var(--accent-2);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.dv-upload-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── Scores card ── */
+.dv-scores-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.dv-scores-heading {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--txt);
+  margin-bottom: 4px;
+}
+.dv-scores-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--r-md);
+  padding: 4px;
+}
+.dv-scores-tab {
+  flex: 1;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--txt-3);
+  cursor: pointer;
+  transition: all 0.22s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: none;
+}
+.dv-scores-tab.active {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 2px 10px rgba(20,184,166,0.3);
+}
+.dv-scores-tab:hover:not(.active) {
+  background: rgba(255,255,255,0.05);
+  color: var(--txt);
+}
+.dv-scores-gauges {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+/* ── Role input inside dashboard ── */
+.dv-role-section {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.dv-role-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--txt-3);
+  margin-bottom: 10px;
+}
+.dv-role-input-row {
+  display: flex;
+  gap: 8px;
+}
+.dv-role-input-row .noir-input {
+  flex: 1;
+  padding: 11px 14px;
+  font-size: 0.88rem;
+}
+.dv-role-analyze-btn {
+  padding: 11px 20px;
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border-radius: var(--r-lg);
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dv-role-analyze-btn:hover {
+  background: var(--accent-2);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.dv-role-analyze-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.dv-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* ── Right column ── */
+.dv-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Recommendations card ── */
+.dv-recs-card .dv-recs-title {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--txt);
+  margin-bottom: 16px;
+}
+.dv-rec-item {
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 10px;
+  transition: border-color 0.25s;
+}
+.dv-rec-item:hover {
+  border-color: var(--border-teal);
+}
+.dv-rec-item:last-child {
+  margin-bottom: 0;
+}
+.dv-rec-item h4 {
+  font-family: var(--font-head);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.dv-rec-item p {
+  font-size: 0.82rem;
+  color: var(--txt-3);
+  line-height: 1.45;
+}
+
+/* ── Key Metrics card ── */
+.dv-metrics-card .dv-metrics-title {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--txt);
+  margin-bottom: 16px;
+}
+.dv-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dv-metric-row:last-child {
+  margin-bottom: 0;
+}
+.dv-metric-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--txt-2);
+  min-width: 100px;
+}
+.dv-metric-bar-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.dv-metric-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: var(--r-full);
+  box-shadow: 0 0 10px var(--accent-glow);
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dv-metric-val {
+  font-family: var(--font-head);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--txt);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Skill Gap Analysis Card ── */
+.dv-skillgap-card {
+  grid-column: span 2;
+}
+@media (max-width: 1200px) {
+  .dv-skillgap-card {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 800px) {
+  .dv-skillgap-card {
+    grid-column: span 1;
+  }
+}
+
+.dv-skillgap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.dv-skillgap-title {
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--txt);
+}
+.dv-skillgap-subtitle {
+  font-size: 0.78rem;
+  color: var(--txt-3);
+  margin-top: 2px;
+}
+
+/* ── Empty / placeholder states ── */
+.dv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.dv-empty-icon {
+  color: var(--txt-3);
+  opacity: 0.4;
+}
+.dv-empty-title {
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--txt-2);
+}
+.dv-empty-sub {
+  font-size: 0.88rem;
+  color: var(--txt-3);
+  max-width: 340px;
+}
+
+/* ── Analyzing overlay ── */
+.dv-analyzing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 13, 31, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Status bar ── */
+.dv-status {
+  margin-top: 16px;
+}

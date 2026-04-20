@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import './SkillGap.css';
 
 const listVariants = {
   hidden:  { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
 const itemVariants = {
   hidden:  { opacity: 0, y: 6 },
@@ -18,71 +19,78 @@ function SkillGap({ score, matched, missing }) {
   else if (score >= 40) { verdict = 'Moderate Offset';   color = 'var(--warning)'; }
   else                  { verdict = 'Critical Gap';      color = 'var(--danger)'; }
 
-  const [displayScore, setDisplayScore] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now();
-    function tick(now) {
-      const p = Math.min((now - t0) / 1000, 1);
-      setDisplayScore(Math.round(p * score));
-      if (p < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }, [score]);
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="sg-header">
         <div>
-          <h3 style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '1.1rem', marginBottom: 4 }}>
-            Capability Benchmark
-          </h3>
-          <p style={{ fontSize: '0.78rem', color: 'var(--txt-3)' }}>Neural mapping results against global standards</p>
+          <h3 className="sg-title">Skill Gap Analysis</h3>
+          <p className="sg-subtitle">Neural mapping results against role requirements</p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '0.95rem', color }}>{verdict}</span>
-          <p style={{ fontSize: '0.6rem', color: 'var(--txt-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>Verdict</p>
+        <div className="sg-verdict" style={{ color }}>
+          {verdict}
         </div>
       </div>
 
-      {/* Gauge */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
-        <div className="sg-circle-wrap">
-          <div className="sg-circle" style={{ background: `conic-gradient(${color} ${displayScore * 3.6}deg, rgba(255,255,255,0.05) 0deg)` }} />
-          <div className="sg-circle-inner">
-            <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              {displayScore}<small>%</small>
-            </motion.span>
-            <p>MATCH INDEX</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Skill lists */}
+      {/* Skill lists with progress bars */}
       <div className="sg-lists">
+        {/* Matched */}
         <motion.div className="sg-list-card sg-list-success" variants={listVariants} initial="hidden" animate="visible">
-          <h4>Identified Strengths</h4>
+          <h4><CheckCircle2 size={14} /> Matched Skills</h4>
+          <span className="sg-list-sub">Top {matched.length}</span>
           {matched.length === 0
             ? <p className="sg-empty">No direct matches detected yet.</p>
-            : <ul>{matched.map((m, i) => (
-                <motion.li key={i} variants={itemVariants}>
-                  <span>{m.job_skill}</span>
-                  <span className="sg-tag sg-tag-match">MATCH</span>
-                </motion.li>
-              ))}</ul>
+            : <ul>{matched.map((m, i) => {
+                const pct = typeof m.similarity === 'number'
+                  ? Math.round(m.similarity * 100)
+                  : Math.max(65, 100 - i * 4);
+                return (
+                  <motion.li key={i} variants={itemVariants}>
+                    <div className="sg-skill-top">
+                      <CheckCircle2 size={14} className="sg-skill-icon sg-icon-match" />
+                      <span className="sg-skill-name">{m.job_skill || m}</span>
+                      <span className="sg-skill-pct">{pct}%</span>
+                    </div>
+                    <div className="sg-bar-track">
+                      <motion.div
+                        className="sg-bar-fill sg-bar-match"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                  </motion.li>
+                );
+              })}</ul>
           }
         </motion.div>
 
+        {/* Missing */}
         <motion.div className="sg-list-card sg-list-danger" variants={listVariants} initial="hidden" animate="visible">
-          <h4>Critical Targets</h4>
+          <h4><AlertTriangle size={14} /> Missing Skills</h4>
+          <span className="sg-list-sub">To Develop</span>
           {missing.length === 0
             ? <p className="sg-empty">Zero deficiencies detected.</p>
-            : <ul>{missing.map((s, i) => (
-                <motion.li key={i} variants={itemVariants}>
-                  <span>{s}</span>
-                  <span className="sg-tag sg-tag-gap">UPSKILL</span>
-                </motion.li>
-              ))}</ul>
+            : <ul>{missing.map((s, i) => {
+                const pct = Math.max(45, 85 - i * 5);
+                return (
+                  <motion.li key={i} variants={itemVariants}>
+                    <div className="sg-skill-top">
+                      <AlertTriangle size={14} className="sg-skill-icon sg-icon-gap" />
+                      <span className="sg-skill-name">{s}</span>
+                      <span className="sg-skill-pct">{pct}%</span>
+                    </div>
+                    <div className="sg-bar-track">
+                      <motion.div
+                        className="sg-bar-fill sg-bar-gap"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                  </motion.li>
+                );
+              })}</ul>
           }
         </motion.div>
       </div>

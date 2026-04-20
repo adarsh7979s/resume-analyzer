@@ -1,5 +1,6 @@
 # Resume Analyzer
 
+![Resume Analyzer Hero](docs/assets/hero.png)
 AI-powered resume analysis platform that:
 
 - extracts resume skills from PDF uploads
@@ -20,6 +21,10 @@ The system uses a FastAPI backend for document parsing and scoring, plus a React
 4. Infer the job's required skills using internal reasoning, cached role intelligence, and optional Gemini assistance.
 5. Score the resume against the role using grouped skill matching and ATS-oriented heuristics.
 6. Return recommendations, focus areas, courses, and resume upgrade suggestions.
+
+## Visual Previews
+
+![Resume Analyzer Results Dashboard](docs/assets/results.png)
 
 ## Core Features
 
