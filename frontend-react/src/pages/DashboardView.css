@@ -50,22 +50,43 @@
   letter-spacing: 0.05em;
 }
 
-/* ── Main grid ── */
+/* ── Main grid — 2 column layout with sidebar ── */
 .dv-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 340px;
+  grid-template-columns: 1fr 320px;
   gap: 16px;
   align-items: start;
 }
-@media (max-width: 1200px) {
-  .dv-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (max-width: 800px) {
+@media (max-width: 1100px) {
   .dv-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Left content area flows vertically */
+.dv-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Top row inside main: Upload + Scores side by side */
+.dv-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 800px) {
+  .dv-top-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Right sidebar */
+.dv-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* ── Card base ── */
@@ -87,7 +108,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  min-height: 240px;
+  min-height: 220px;
   cursor: pointer;
   transition: all 0.3s var(--ease);
 }
@@ -103,8 +124,8 @@
   border-style: solid;
 }
 .dv-upload-icon {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   background: rgba(255, 255, 255, 0.04);
   border: 2px dashed var(--border);
   border-radius: var(--r-xl);
@@ -171,7 +192,7 @@
 .dv-scores-card {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 .dv-scores-heading {
   font-family: var(--font-head);
@@ -215,7 +236,7 @@
 .dv-scores-gauges {
   display: flex;
   justify-content: center;
-  gap: 32px;
+  gap: 24px;
   flex-wrap: wrap;
 }
 
@@ -272,11 +293,16 @@
   margin-top: 10px;
 }
 
-/* ── Right column ── */
-.dv-right-col {
-  display: flex;
-  flex-direction: column;
+/* ── Key Metrics row (horizontal cards) ── */
+.dv-metrics-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+@media (max-width: 800px) {
+  .dv-metrics-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Recommendations card ── */
@@ -363,17 +389,7 @@
 
 /* ── Skill Gap Analysis Card ── */
 .dv-skillgap-card {
-  grid-column: span 2;
-}
-@media (max-width: 1200px) {
-  .dv-skillgap-card {
-    grid-column: span 2;
-  }
-}
-@media (max-width: 800px) {
-  .dv-skillgap-card {
-    grid-column: span 1;
-  }
+  /* No spanning needed — lives inside main column */
 }
 
 .dv-skillgap-header {
@@ -401,7 +417,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 48px 24px;
+  padding: 40px 24px;
   text-align: center;
 }
 .dv-empty-icon {
